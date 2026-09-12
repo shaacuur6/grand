@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Booking{% else %}New Booking{% endif %}{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="row justify-content-center">
+    <div class="col-12 col-xl-9">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white py-3">
+          <h4 class="mb-0"><i class="bi bi-calendar-plus me-2"></i>{% if object %}Edit Booking #{{ object.id }}{% else %}New Booking{% endif %}</h4>
+        </div>
+        <div class="card-body p-4">
+          <form method="post" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+              {% for field in form %}
+              <div class="col-md-{% if field.name == 'guest' or field.name == 'room' %}6{% else %}4{% endif %}">
+                <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                {{ field }}
+                {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            {% if not object %}
+            <div class="alert alert-info mt-4 mb-0"><i class="bi bi-info-circle me-2"></i>The booking is created as <strong>Reserved</strong>. Check-in is a separate operation.</div>
+            {% else %}
+            <div class="alert alert-warning mt-4 mb-0"><i class="bi bi-arrow-left-right me-2"></i>Room changes are handled only through <strong>Transfer Room</strong> so the room-charge ledger and payments remain correct.</div>
+            {% endif %}
+            <div class="d-flex gap-2 mt-4">
+              <button class="btn btn-primary px-4"><i class="bi bi-check2-circle me-1"></i>Save</button>
+              {% if object %}<a href="{% url 'booking_detail' object.id %}" class="btn btn-outline-secondary">Cancel</a>{% else %}<a href="{% url 'booking_list' %}" class="btn btn-outline-secondary">Cancel</a>{% endif %}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

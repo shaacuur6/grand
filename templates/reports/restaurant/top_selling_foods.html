@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-warning">
+
+<h4>
+Top Selling Foods
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<table class="table table-bordered">
+
+<tr>
+
+<th>Food</th>
+<th>Quantity Sold</th>
+
+</tr>
+
+{% for food in foods %}
+
+<tr>
+
+<td>{{ food.food__name }}</td>
+<td>{{ food.total_qty }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

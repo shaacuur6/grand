@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Rooms</h2>
+
+<a href="{% url 'room_add' %}" class="btn btn-primary mb-3">
+Add Room
+</a>
+
+<table class="table table-bordered table-striped">
+<thead class="table-dark">
+<tr>
+<th>Room Number</th>
+<th>Type</th>
+<th>Price</th>
+<th>Price with AC</th>
+<th>Available</th>
+<th>Action</th>
+</tr>
+</thead>
+{% for room in object_list %}
+
+<tr>
+<td>{{ room.number }}</td>
+<td>{{ room.room_type }}</td>
+<td>{{ room.price }}</td>
+<td>{{ room.price_with_ac }}</td>
+{% if room.is_available %}
+<td>Yes</td>
+{% else %}  
+<td>No</td>
+{% endif %}
+<td>
+
+<a href="{% url 'room_edit' room.id %}" class="btn btn-sm btn-warning">
+Edit
+</a>
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

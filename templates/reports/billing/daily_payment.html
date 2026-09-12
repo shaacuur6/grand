@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <h3>Daily Payment Report</h3>
+
+    <div class="card p-3 mb-3">
+
+        <h4>Total Received:
+            ${{ total |floatformat:2 }}
+        </h4>
+
+    </div>
+
+    <table class="table table-bordered">
+
+        <tr>
+
+            <th>Invoice</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Received By</th>
+
+        </tr>
+
+        {% for payment in payments %}
+
+        <tr>
+
+            <td>{{ payment.invoice.id }}</td>
+            <td>{{ payment.amount }}</td>
+            <td>{{ payment.payment_method }}</td>
+            <td>{{ payment.received_by }}</td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+{% endblock %}

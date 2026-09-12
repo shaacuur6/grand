@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-primary text-white">
+
+<h4>
+Daily Restaurant Sales
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<h5>
+Date: {{ today }}
+</h5>
+
+<h4 class="text-success">
+Total Sales: ${{ total_sales }}
+</h4>
+
+<table class="table table-bordered table-striped">
+
+<thead class="table-dark">
+
+<tr>
+
+<th>Order #</th>
+<th>Guest</th>
+<th>Waiter</th>
+<th>Total</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for order in orders %}
+
+<tr>
+
+<td>{{ order.id }}</td>
+<td>{{ order.booking.guest }}</td>
+<td>{{ order.waiter }}</td>
+<td>${{ order.total_amount }}</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

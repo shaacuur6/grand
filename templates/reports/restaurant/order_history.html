@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-dark text-white">
+
+<h4>
+Order History
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<table class="table table-bordered table-striped">
+
+<tr>
+
+<th>Order #</th>
+<th>Guest</th>
+<th>Waiter</th>
+<th>Total</th>
+<th>Date</th>
+
+</tr>
+
+{% for order in orders %}
+
+<tr>
+
+<td>{{ order.id }}</td>
+<td>{{ order.booking.guest }}</td>
+<td>{{ order.waiter }}</td>
+<td>${{ order.total_amount }}</td>
+<td>{{ order.created_at }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

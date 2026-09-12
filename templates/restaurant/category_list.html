@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h2>Food Categories</h2>
+    <a href="{% url 'category_add' %}" class="btn btn-primary mb-3">Add New Category</a>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
+                <tr>
+                    <td>{{ category.name }}</td>
+                    <td>
+                        <a href="{% url 'category_edit' category.id %}" class="btn btn-sm btn-warning">Edit</a>
+                        <a href="{% url 'category_delete' category.id %}" class="btn btn-sm btn-danger">Delete</a>
+                    </td>
+                    
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

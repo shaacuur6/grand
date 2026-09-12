@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+<h3 class="mb-4">Restaurant Order Report</h3>
+
+<table class="table table-bordered table-striped">
+
+<thead class="table-dark">
+
+<tr>
+<th>Order ID</th>
+<th>Table</th>
+<th>Food Item</th>
+<th>Quantity</th>
+<th>Price</th>
+<th>Total</th>
+<th>Date</th>
+<th>Note</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for item in items %}
+
+<tr>
+
+<td>{{ item.order.id }}</td>
+
+<td>{{ item.order.table_number }}</td>
+
+<td>{{ item.food.name }}</td>
+
+<td>{{ item.quantity }}</td>
+
+
+
+<td>${{ item.food.price }}</td>
+
+<td>${{ item.total_price }}</td>
+
+<td>{{ item.order.created_at|date:"Y-m-d H:i" }}</td>
+<td>
+{% if item.description %}
+{{ item.description }}
+{% else %}
+-
+{% endif %}
+</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+{% endblock %}

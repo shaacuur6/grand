@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>Guests</h2>
+
+<a href="{% url 'guest_add' %}" class="btn btn-primary mb-3">
+Add Guest
+</a>
+
+<table class="table table-bordered table-striped">
+<thead class="table-dark">
+
+<tr>
+<th>Name</th>
+<th>Phone</th>
+<th>Email</th>
+<th>Action</th>
+</tr>
+</thead>
+{% for guest in object_list %}
+
+<tr>
+
+<td>{{ guest.first_name }} {{ guest.last_name }}</td>
+<td>{{ guest.phone }}</td>
+<td>{{ guest.email }}</td>
+
+<td>
+
+<a href="{% url 'guest_edit' guest.id %}" class="btn btn-sm btn-warning">
+Edit
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

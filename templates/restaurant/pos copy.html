@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<h3>Orders Report</h3>
+
+<table class="table table-bordered table-striped">
+
+<thead>
+
+<tr>
+<th>ID</th>
+<th>Table</th>
+<th>Date</th>
+<th>Total</th>
+<th>Action</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for order in orders %}
+
+<tr>
+
+<td>{{ order.id }}</td>
+
+<td>{{ order.table_number }}</td>
+
+<td>{{ order.created_at }}</td>
+
+<td>${{ order.total_amount }}</td>
+
+<td>
+
+<a href="{% url 'order_detail' order.id %}"
+class="btn btn-primary btn-sm">
+
+View Details
+
+</a>
+<a href="{% url 'print_receipt' order.id %}"
+class="btn btn-sm btn-success"
+target="_blank">
+
+Print Receipt
+
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+{% endblock %}

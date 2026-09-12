@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+
+<h3>Restaurant Sales Report</h3>
+
+<!-- QUICK FILTERS -->
+
+<div class="mb-3">
+
+<a href="?start_date={{today}}&end_date={{today}}" class="btn btn-primary">
+Today
+</a>
+
+<a href="?start_date={{yesterday}}&end_date={{yesterday}}" class="btn btn-warning">
+Yesterday
+</a>
+
+<a href="?start_date={{month_start}}" class="btn btn-success">
+This Month
+</a>
+
+</div>
+
+
+<!-- EXPORT -->
+
+<div class="mb-3">
+
+<a href="{% url 'export_excel' %}" class="btn btn-success">
+Export Excel
+</a>
+
+<a href="{% url 'export_pdf' %}" class="btn btn-danger">
+Export PDF
+</a>
+
+</div>
+
+
+<!-- TOTAL -->
+
+<div class="card mb-3">
+<div class="card-body">
+
+<h4>Total Revenue: ${{total_revenue}}</h4>
+
+</div>
+</div>
+
+
+<!-- SALES CHART -->
+
+<canvas id="salesChart"></canvas>
+
+
+<!-- TOP SELLING FOODS -->
+
+<h4 class="mt-4">Top Selling Foods</h4>
+
+<table class="table table-bordered">
+
+<tr>
+<th>Food</th>
+<th>Quantity Sold</th>
+</tr>
+
+{% for f in top_foods %}
+
+<tr>
+<td>{{f.food__name}}</td>
+<td>{{f.total_qty}}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+
+<!-- ORDERS TABLE -->
+
+<table class="table table-striped">
+
+<tr>
+<th>Order</th>
+<th>Table</th>
+<th>Date</th>
+<th>Total</th>
+</tr>
+
+{% for o in orders %}
+
+<tr>
+<td>{{o.id}}</td>
+<td>{{o.table_number}}</td>
+<td>{{o.created_at}}</td>
+<td>${{o.total_amount}}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+const ctx = document.getElementById('salesChart');
+
+new Chart(ctx, {
+
+type: 'bar',
+
+data: {
+
+labels: {{ chart_labels|safe }},
+
+datasets: [{
+
+label: 'Daily Sales',
+
+data: {{ chart_values|safe }}
+
+}]
+
+}
+
+});
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>{% if object %}Update Room{% else %}Add Room{% endif %}</h2>
+
+<form method="post">
+
+{% csrf_token %}
+
+{{ form.as_p }}
+
+<button class="btn btn-success">
+{% if object %}Update Room{% else %}Save Room{% endif %}
+</button>
+
+</form>
+
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+
+{% block content %}
+    <h1>Purchase Item Form</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form }}
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+{% endblock %}

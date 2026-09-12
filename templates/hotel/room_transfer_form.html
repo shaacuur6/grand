@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Transfer Room{% endblock %}
+{% block content %}
+<div class="container-fluid py-4"><div class="row justify-content-center"><div class="col-xl-7"><div class="card border-0 shadow-sm"><div class="card-header bg-warning"><h4 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>Transfer Room — Booking #{{ booking.id }}</h4></div><div class="card-body p-4">
+<div class="row g-3 mb-4"><div class="col-md-6"><div class="border rounded p-3"><small class="text-muted">Guest</small><div class="fw-bold">{{ booking.guest }}</div></div></div><div class="col-md-3"><div class="border rounded p-3"><small class="text-muted">Current Room</small><div class="fw-bold">{{ booking.room.number }}</div></div></div><div class="col-md-3"><div class="border rounded p-3"><small class="text-muted">Current Rate</small><div class="fw-bold">${{ booking.room_price|floatformat:2 }}</div></div></div></div>
+<div class="alert alert-info"><strong>Financial protection:</strong> the old room stay closes on the transfer date and the new stay starts on the same date. The transfer day is charged once. Existing payments are preserved and the invoice is recalculated from the room ledger.</div>
+<form method="post" novalidate>{% csrf_token %}{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+<div class="mb-3"><label class="form-label fw-semibold">New Room</label>{{ form.room }}{% for e in form.room.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+<div class="mb-3"><label class="form-label fw-semibold">Transfer Date</label>{{ form.transfer_date }}{% for e in form.transfer_date.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+<div class="mb-4"><label class="form-label fw-semibold">Reason / Note</label>{{ form.note }}</div>
+<div class="d-flex gap-2"><button class="btn btn-warning"><i class="bi bi-check2-circle me-1"></i>Confirm Transfer</button><a href="{% url 'booking_detail' booking.id %}" class="btn btn-outline-secondary">Cancel</a></div>
+</form></div></div></div></div></div>
+{% endblock %}

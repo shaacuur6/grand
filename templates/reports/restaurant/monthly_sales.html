@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-success text-white">
+
+<h4>
+Monthly Sales Report
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<h5>
+{{ month }}
+</h5>
+
+<h3 class="text-success">
+${{ total_sales }}
+</h3>
+
+<table class="table table-bordered">
+
+<tr>
+
+<th>Order #</th>
+<th>Total</th>
+
+</tr>
+
+{% for order in orders %}
+
+<tr>
+
+<td>{{ order.id }}</td>
+<td>${{ order.total_amount }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

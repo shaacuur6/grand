@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<h3>Orders Report</h3>
+
+
+<table class="table table-bordered table-striped">
+
+<thead class="table-dark">
+
+
+
+<tr>
+<th>ID</th>
+<th>Table</th>
+<th>Customer </th>
+<th>Employee</th>
+<th>Date</th>
+<th>Total</th>
+<th>Action</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for order in orders %}
+
+<!-- ORDER ROW -->
+
+<tr>
+
+<td>{{ order.id }}</td>
+
+<td>{{ order.table_number }}</td>
+
+<td>{{ order.booking }}</td>
+
+<td>{{ order.employee }}</td>
+
+<td>{{ order.created_at }}</td>
+
+<td>${{ order.total_amount }}</td>
+
+<td>
+
+<button class="btn btn-primary btn-sm"
+onclick="toggleDetails('details{{ order.id }}')">
+
+View Details
+
+</button>
+
+<a href="{% url 'print_receipt' order.id %}"
+class="btn btn-success btn-sm"
+target="_blank">
+
+Print Receipt
+
+</a>
+
+<a href="{% url 'order_update' order.id %}" class="btn btn-sm btn-primary">
+                    Update
+                </a>
+</td>
+
+</tr>
+
+<!-- HIDDEN DETAILS ROW -->
+
+
+<tr id="details{{ order.id }}" class="detail-row" style="display:none;">
+
+<td colspan="5">
+
+<div class="card shadow">
+
+<div class="card-body">
+
+<h5 style="text-align: center;">Order Items</h5>
+<hr>
+{% if order.table_number %}
+<h6 style="text-align: center;">Order ID:{{ order.id }} --------------   Table Number:{{ order.table_number }}</h6>
+{% elif order.booking %}
+<h6 style="text-align: center;">Order ID:{{ order.id }} --------------   Customer:{{ order.booking }}</h6>
+{% elif order.employee %}
+<h6 style="text-align: center;">Order ID:{{ order.id }} -------------- Employee:{{ order.employee }}</h6>
+{% endif %}
+<hr>
+<table class="table table-sm">
+
+<thead>
+<tr>
+<th>Food</th>
+<th>Qty</th>
+<th>Price</th>
+<th>Note</th>
+<th>Total</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for item in order.items.all %}
+
+<tr>
+
+<td>{{ item.food.name }}</td>
+
+<td>${{ item.food.price }}</td>
+
+<td>{{ item.quantity }}</td>
+
+
+<td>{{ item.description }}</td>
+
+<td class="item-total">${{ item.total_price }}</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+<tfoot>
+
+<tr class="table-success">
+
+<td colspan="4"><strong>Total Order</strong></td>
+
+<td >
+
+<strong id="items-total-{{ order.id }}">$0</strong>
+
+</td>
+
+</tr>
+
+</tfoot>
+</table>
+
+</div>
+
+</div>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+<script>
+
+/*function toggleDetails(id){
+
+let row = document.getElementById(id)
+
+if(row.style.display === "none"){
+row.style.display = "table-row"
+}else{
+row.style.display = "none"
+}
+
+}*/
+/*
+function toggleDetails(id) {
+    // Get all detail rows (you can mark them with a class "detail-row")
+    const allDetails = document.querySelectorAll(".detail-row");
+
+    allDetails.forEach(row => {
+        if (row.id !== id) {
+            row.style.display = "none"; // Collapse all other rows
+        }
+    });
+
+    // Toggle the clicked row
+    const row = document.getElementById(id);
+    if (!row) return;
+
+    row.style.display = (row.style.display === "none" || row.style.display === "") 
+                        ? "table-row" 
+                        : "none";
+}
+*/
+
+function toggleDetails(id) {
+
+    const allDetails = document.querySelectorAll(".detail-row");
+
+    allDetails.forEach(row => {
+        if (row.id !== id) {
+            row.style.display = "none";
+        }
+    });
+
+    const row = document.getElementById(id);
+    if (!row) return;
+
+    if (row.style.display === "none" || row.style.display === "") {
+        row.style.display = "table-row";
+        calculateItemsTotal(id);
+    } else {
+        row.style.display = "none";
+    }
+}
+
+function calculateItemsTotal(id) {
+
+    let row = document.getElementById(id);
+
+    let totals = row.querySelectorAll(".item-total");
+
+    let sum = 0;
+
+    totals.forEach(cell => {
+        let value = parseFloat(cell.innerText.replace("$",""));
+        sum += value;
+    });
+
+    let orderId = id.replace("details","");
+
+    document.getElementById("items-total-" + orderId).innerText = "$" + sum.toFixed(2);
+}
+</script>
+
+{% endblock %}

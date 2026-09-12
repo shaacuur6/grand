@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Bookings{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div><h2 class="fw-bold mb-1"><i class="bi bi-calendar-check me-2"></i>Bookings</h2><div class="text-muted">Reservations and checked-in guests</div></div>
+    <a href="{% url 'booking_add' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Booking</a>
+  </div>
+  {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th>Booking</th><th>Guest</th><th>Room</th><th>Status</th><th>Stay</th><th>Rate</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for booking in bookings %}
+          <tr>
+            <td><a class="fw-bold text-decoration-none" href="{% url 'booking_detail' booking.id %}">#{{ booking.id }}</a></td>
+            <td><strong>{{ booking.guest }}</strong><br><small class="text-muted">{{ booking.guest.phone }}</small></td>
+            <td><span class="badge text-bg-primary">{{ booking.room.number }}</span>{% if booking.with_ac %} <span class="badge text-bg-success">AC</span>{% endif %}</td>
+            <td>{% if booking.status == 'checked_in' %}<span class="badge text-bg-success">Checked In</span>{% else %}<span class="badge text-bg-warning">Reserved</span>{% endif %}</td>
+            <td>{{ booking.check_in }}{% if booking.check_out %}<br><small>→ {{ booking.check_out }}</small>{% endif %}</td>
+            <td>${{ booking.room_price|floatformat:2 }}</td>
+            <td class="text-nowrap">
+              <a href="{% url 'booking_detail' booking.id %}" class="btn btn-sm btn-outline-primary" title="Open"><i class="bi bi-eye"></i></a>
+              <a href="{% url 'booking_update' booking.id %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+              {% if booking.status == 'reserved' %}<a href="{% url 'check_in' booking.id %}" class="btn btn-sm btn-success">Check In</a>{% else %}<a href="{% url 'room_transfer' booking.id %}" class="btn btn-sm btn-outline-warning" title="Transfer"><i class="bi bi-arrow-left-right"></i></a><a href="{% url 'booking_check_out' booking.id %}" class="btn btn-sm btn-danger">Checkout</a>{% endif %}
+            </td>
+          </tr>
+        {% empty %}<tr><td colspan="7" class="text-center py-5 text-muted">No bookings found.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

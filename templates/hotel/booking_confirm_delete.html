@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+<div class="row justify-content-center">
+
+<div class="col-md-6">
+
+<div class="card shadow">
+
+<div class="card-header bg-danger text-white">
+<h4>Delete Booking</h4>
+</div>
+
+<div class="card-body text-center">
+
+<p class="mb-4">
+Are you sure you want to delete this booking?
+</p>
+
+<ul class="list-group mb-4">
+
+<li class="list-group-item">
+<strong>Guest:</strong> {{ object.guest }}
+</li>
+
+<li class="list-group-item">
+<strong>Room:</strong> {{ object.room }}
+</li>
+
+<li class="list-group-item">
+<strong>Check In:</strong> {{ object.check_in }}
+</li>
+
+<li class="list-group-item">
+<strong>Check Out:</strong> {{ object.check_out }}
+</li>
+
+</ul>
+
+<form method="post">
+{% csrf_token %}
+
+<button type="submit" class="btn btn-danger">
+Yes, Delete
+</button>
+
+<a href="{% url 'booking_list' %}" class="btn btn-secondary">
+Cancel
+</a>
+
+</form>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

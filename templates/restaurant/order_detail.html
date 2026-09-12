@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<h3>Order #{{ order.id }}</h3>
+
+<p><strong>Table:</strong> {{ order.table_number }}</p>
+<p><strong>Date:</strong> {{ order.created_at }}</p>
+
+<table class="table table-bordered">
+
+<thead>
+
+<tr>
+<th>Food</th>
+<th>Price</th>
+<th>Qty</th>
+<th>Notes</th>
+<th>Total</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for item in order.orderitem_set.all %}
+
+<tr>
+
+<td>{{ item.food.name }}</td>
+
+<td>${{ item.food.price }}</td>
+
+<td>{{ item.quantity }}</td>
+
+<td>{{ item.description }}</td>
+
+<td>${{ item.total_price }}</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+<h4 class="text-end">
+Total: ${{ order.total_amount }}
+</h4>
+
+<a href="{% url 'orders_report' %}" class="btn btn-secondary">
+Back
+</a>
+
+</div>
+
+{% endblock %}

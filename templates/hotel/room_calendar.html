@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h3>Room Availability</h3>
+
+<table class="table table-bordered">
+
+<tr>
+<th>Room</th>
+<th>Status</th>
+</tr>
+
+{% for room in object_list %}
+
+<tr>
+<td>{{ room.number }}</td>
+<td>{{ room.status }}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-danger text-white">
+
+<h4>
+Occupied Rooms
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<table class="table table-bordered table-striped">
+
+<tr>
+
+<th>Room #</th>
+<th>Type</th>
+<th>Price</th>
+
+</tr>
+
+{% for room in rooms %}
+
+<tr>
+
+<td>{{ room.number }}</td>
+<td>{{ room.room_type }}</td>
+<td>${{ room.price }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-secondary text-white">
+
+            <h4>
+                Room Paid vs Pending
+            </h4>
+
+        </div>
+
+        <div class="card-body">
+
+            <table class="table table-bordered table-striped">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th>Booking #</th>
+                        <th>Guest</th>
+                        <th>Room</th>
+                        <th>Total</th>
+                        <th>Paid</th>
+                        <th>Pending</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for row in report %}
+
+                    <tr>
+
+                        <td>
+                            {{ row.booking.id }}
+                        </td>
+
+                        <td>
+                            {{ row.booking.guest }}
+                        </td>
+
+                        <td>
+                            {{ row.booking.room }}
+                        </td>
+
+                        <td>
+                            ${{ row.total }}
+                        </td>
+
+                        <td class="text-success fw-bold">
+
+                            ${{ row.paid }}
+
+                        </td>
+
+                        <td class="text-danger fw-bold">
+
+                            ${{ row.pending }}
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<h3>Daily Restaurant Sales Report</h3>
+
+<form method="get" class="row mb-4">
+
+<div class="col-md-3">
+<label>Start Date</label>
+<input type="date" name="start_date" value="{{start_date}}" class="form-control">
+</div>
+
+<div class="col-md-3">
+<label>End Date</label>
+<input type="date" name="end_date" value="{{end_date}}" class="form-control">
+</div>
+
+<div class="col-md-3 d-flex align-items-end">
+<button class="btn btn-primary">Filter</button>
+</div>
+
+</form>
+
+<div class="card mb-4">
+<div class="card-body">
+
+<h4>Total Revenue: ${{ total_revenue }}</h4>
+
+</div>
+</div>
+
+<table class="table table-bordered table-striped">
+
+<thead>
+
+<tr>
+<th>Order ID</th>
+<th>Table</th>
+<th>Date</th>
+<th>Total</th>
+<th>Details</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for order in orders %}
+
+<tr>
+
+<td>{{ order.id }}</td>
+
+<td>{{ order.table_number }}</td>
+
+<td>{{ order.created_at }}</td>
+
+<td>${{ order.total_amount }}</td>
+
+<td>
+
+<a href="{% url 'order_detail' order.id %}" class="btn btn-sm btn-info">
+View
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+{% endblock %}

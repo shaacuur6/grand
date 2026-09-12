@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<style>
+@page {
+
+    margin: 0;
+    size: 80mm 210mm;
+
+}
+
+body {
+
+    margin: 0;
+    padding: 0;
+
+}
+body{
+font-family: monospace;
+width:300px;
+}
+
+.center{
+text-align:center;
+}
+
+img{
+max-width:120px;
+}
+
+</style>
+
+</head>
+
+<body onload="window.print()">
+
+{% load static %}
+
+<div class="center">
+
+<img src="{% static 'images/logo.png' %}">
+
+
+<h3>Grand Cafeteria and Restaurant</h3>
+{% if not order.booking_id %}
+<p>Table: {{order.table_number}}</p>
+{% else %}
+<p>Room: {{order.booking.room}}</p>
+{% endif %}
+<p>Order #: {{order.id}}</p>
+
+
+<p>
+Waiter:
+{{order.waiter.username}}
+</p>
+
+<p>{{order.created_at}}</p>
+
+<hr>
+
+</div>
+
+
+<table width="100%">
+
+<tr>
+<th align="left">Item</th>
+<th align="left">Qty</th>
+<th align="left">Total</th>
+</tr>
+
+{% for item in order.items.all %}
+
+<tr>
+
+<td>
+
+{{item.food.name}}
+
+{% if item.description %}
+<br>
+<small>{{item.description}}</small>
+{% endif %}
+
+</td>
+
+<td>{{item.quantity}}</td>
+
+<td>${{item.total_price}}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+<hr>
+
+<h3>Total: ${{order.total_amount}}</h3>
+
+
+<div class="center">
+
+<img src="data:image/png;base64,{{qr_code}}">
+
+<p>Scan for Order Info</p>
+
+</div>
+
+</body>
+
+</html>

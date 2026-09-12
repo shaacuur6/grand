@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-secondary text-white">
+
+<h4>
+Table Sales Report
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<table class="table table-bordered">
+
+<tr>
+
+<th>Table #</th>
+<th>Total Orders</th>
+<th>Total Sales</th>
+
+</tr>
+
+{% for table in tables %}
+
+<tr>
+
+<td>{{ table.table_number }}</td>
+<td>{{ table.total_orders }}</td>
+<td>${{ table.total_sales }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

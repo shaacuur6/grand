@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+
+            <h4>
+                Service Paid vs Pending
+            </h4>
+
+        </div>
+
+        <div class="card-body">
+
+            <table class="table table-bordered table-striped">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th>Service #</th>
+                        <th>Guest</th>
+                        <th>Total</th>
+                        <th>Paid</th>
+                        <th>Pending</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for row in report %}
+
+                    <tr>
+
+                        <td>
+                            {{ row.service.id }}
+                        </td>
+
+                        <td>
+                            {{ row.service.booking.guest }}
+                        </td>
+
+                        <td>
+                            ${{ row.total }}
+                        </td>
+
+                        <td class="text-success fw-bold">
+
+                            ${{ row.paid }}
+
+                        </td>
+
+                        <td class="text-danger fw-bold">
+
+                            ${{ row.pending }}
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

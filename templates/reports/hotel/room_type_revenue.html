@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow">
+
+<div class="card-header bg-primary text-white">
+
+<h4>
+Room Type Revenue
+</h4>
+
+</div>
+
+<div class="card-body">
+
+<table class="table table-bordered table-striped">
+
+<tr>
+
+<th>Room Type</th>
+<th>Total Revenue</th>
+
+</tr>
+
+{% for row in report %}
+
+<tr>
+
+<td>
+
+{{ row.room_type }}
+
+</td>
+
+<td class="fw-bold text-success">
+
+${{ row.total }}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

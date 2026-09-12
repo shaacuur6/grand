@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+
+    <div class="card shadow-sm">
+
+        <div class="card-header bg-success text-white">
+
+            <div class="d-flex justify-content-between">
+
+                <h4 class="mb-0">
+                    Inventory Items
+                </h4>
+
+                <a
+                    href="{% url 'inventoryitem_create' %}"
+                    class="btn btn-light"
+                >
+                    + Add Item
+                </a>
+
+            </div>
+
+        </div>
+
+        <div class="card-body">
+
+            <table class="table table-bordered table-hover">
+
+                <thead class="table-light">
+
+                    <tr>
+
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Unit</th>
+                        <th>Current Stock</th>
+                        <th>Reorder Level</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for item in items %}
+
+                    <tr>
+
+                        <td>
+                            {{ forloop.counter }}
+                        </td>
+
+                        <td>
+                            <strong>
+                                {{ item.name }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ item.unit }}
+                        </td>
+
+                        <td>
+                            {{ item.current_stock|floatformat:2 }}
+                        </td>
+
+                        <td>
+                            {{ item.reorder_level|floatformat:2 }}
+                        </td>
+
+                        <td>
+
+                            {% if item.current_stock <= item.reorder_level %}
+
+                                <span class="badge bg-danger">
+                                    Low Stock
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-success">
+                                    Available
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            <a
+                                href="{% url 'inventoryitem_update' item.pk %}"
+                                class="btn btn-warning btn-sm"
+                            >
+                                Edit
+                            </a>
+
+                            <a
+                                href="{% url 'inventoryitem_delete' item.pk %}"
+                                class="btn btn-danger btn-sm"
+                            >
+                                Delete
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+
+                        <td
+                            colspan="7"
+                            class="text-center"
+                        >
+                            No inventory items found.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

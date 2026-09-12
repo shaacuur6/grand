@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+    <h3>Update Order #{{ object.id }}</h3>
+
+    <form method="POST">
+        {% csrf_token %}
+
+        <!-- 🔹 Switch Table / Room -->
+        <div class="row mb-3">
+            <div class="col">
+                <label>Table Number</label>
+                <input type="number" name="table_number"
+                       value="{{ object.table_number }}"
+                       class="form-control">
+            </div>
+            <div class="col">
+                <label>Employee</label>
+                <select name="employee" class="form-control">
+                    <option value="">-- Select Employee --</option>
+                    {% for e in employees %}
+                        <option value="{{ e.id }}"
+                            {% if object.employee_id == e.id %}selected{% endif %}>
+                            {{ e.full_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+                
+
+            <div class="col">
+                <label>Customer (Booking)</label>
+                <select name="booking" class="form-control">
+                    <option value="">-- Select Customer --</option>
+                    {% for b in bookings %}
+                        <option value="{{ b.id }}"
+                            {% if object.booking_id == b.id %}selected{% endif %}>
+                             {{ b }} 
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Food</th>
+                    <th>Price</th>
+                    <th>Qty</th>
+                    <th>Note</th>
+                    <th>Total</th>
+                    <th>Remove</th>
+                </tr>
+            </thead>
+
+            <tbody id="order-items">
+                {% for item in object.items.all %}
+                <tr>
+                    <!-- 🔥 Food dropdown -->
+                    <td>
+                        <select name="food_{{ item.id }}" class="form-control food-select">
+                            {% for food in foods %}
+                                <option value="{{ food.id }}"
+                                        data-price="{{ food.price }}"
+                                        {% if food.id == item.food.id %}selected{% endif %}>
+                                    {{ food.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+
+                    <td class="price">{{ item.food.price }}</td>
+
+                    <td>
+                        <input type="number"
+                               name="quantity_{{ item.id }}"
+                               value="{{ item.quantity }}"
+                               class="form-control qty"
+                               min="1">
+                    </td>
+
+                    <td>
+                        <input type="text"
+                               name="note_{{ item.id }}"
+                               value="{{ item.description }}"
+                               class="form-control">
+                    </td>
+
+                    <td class="item-total">0.00</td>
+
+                    <td>
+                        <input type="checkbox" name="delete_{{ item.id }}">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="text-end">
+            <h4>Total: <span id="grand-total">0.00</span></h4>
+        </div>
+
+        <button type="submit" class="btn btn-success">Update Order</button>
+    </form>
+</div>
+
+<script>
+function calculateTotal() {
+    let grandTotal = 0;
+
+    document.querySelectorAll("#order-items tr").forEach(row => {
+        let select = row.querySelector(".food-select");
+        let price = parseFloat(select.options[select.selectedIndex].dataset.price);
+        let qty = parseInt(row.querySelector(".qty").value) || 0;
+
+        row.querySelector(".price").innerText = price.toFixed(2);
+
+        let total = price * qty;
+        row.querySelector(".item-total").innerText = total.toFixed(2);
+
+        grandTotal += total;
+    });
+
+    document.getElementById("grand-total").innerText = grandTotal.toFixed(2);
+}
+
+document.querySelectorAll(".qty, .food-select").forEach(el => {
+    el.addEventListener("input", calculateTotal);
+});
+
+window.onload = calculateTotal;
+</script>
+
+<script>
+const tableInput = document.querySelector("[name=table_number]");
+const bookingSelect = document.querySelector("[name=booking]");
+
+tableInput.addEventListener("input", function() {
+    if (this.value) {
+        bookingSelect.value = "";
+    }
+});
+
+bookingSelect.addEventListener("change", function() {
+    if (this.value) {
+        tableInput.value = "";
+    }
+});
+</script>
+{% endblock %}

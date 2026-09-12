@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="row">
+
+<div class="col-md-3">
+
+<div class="card bg-primary text-white shadow">
+
+<div class="card-body">
+
+<h5>Total Rooms</h5>
+
+<h2>{{ total_rooms }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="col-md-3">
+
+<div class="card bg-success text-white shadow">
+
+<div class="card-body">
+
+<h5>Occupied</h5>
+
+<h2>{{ occupied_rooms }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="col-md-3">
+
+<div class="card bg-warning text-dark shadow">
+
+<div class="card-body">
+
+<h5>Vacant</h5>
+
+<h2>{{ vacant_rooms }}</h2>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="col-md-3">
+
+<div class="card bg-danger text-white shadow">
+
+<div class="card-body">
+
+<h5>Occupancy %</h5>
+
+<h2>{{ occupancy_rate|floatformat:2 }}%</h2>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+{% endblock %}

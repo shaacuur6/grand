@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h3>Services</h3>
+
+    <a href="{% url 'service_add' %}" class="btn btn-primary mb-3">Add Service</a>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Room</th>
+                <th>Check-in Date</th>
+                <th>Type</th>
+                
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for service in services %}
+            <tr>
+                <td>{{ service.booking }}</td>
+                <td>{{ service.booking.check_in }} </td>
+                <td>{{ service.get_service_type_display }}</td>
+                
+                <td>{{ service.total_amount }}</td>
+                <td>{{ service.date }}</td>
+                <td>
+                    <a href="{% url 'service_edit' service.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                    <a href="{% url 'service_delete' service.pk %}" class="btn btn-sm btn-danger">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+{% endblock %}

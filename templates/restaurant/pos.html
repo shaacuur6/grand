@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% load custom_filters %}
+<div class="container-fluid">
+
+<h3 class="mb-4 fw-bold">🍽️ Restaurant POS</h3>
+
+<form method="POST" action="{% url 'pos' %}">
+{% csrf_token %}
+
+<div class="row">
+
+<!-- LEFT SIDE MENU -->
+<div class="col-md-8">
+
+<!-- CATEGORY FILTER -->
+<div class="mb-4">
+
+<button type="button" class="btn btn-outline-dark me-2 mb-2"
+onclick="filterCategory('all')">All</button>
+
+{% for cat in categories %}
+<button type="button" class="btn btn-outline-primary me-2 mb-2"
+onclick="filterCategory('{{ cat.id }}')">
+{{ cat.name }}
+</button>
+{% endfor %}
+
+</div>
+
+<!-- FOOD ITEMS -->
+<div class="row" id="menu_items">
+
+{% for food in foods %}
+<div class="col-md-3 mb-4 food-item"
+data-category="{{ food.category.id }}">
+
+<div class="card shadow-sm border-0 food-card h-100">
+
+<div class="card-body text-center">
+
+<!-- IMAGE -->
+{% if food.image %}
+<img src="{{ food.image.url }}"
+class="food-img mb-2"
+onclick="addItem({{ food.id }},'{{ food.name }}',{{ food.price }})">
+{% else %}
+<img src="/static/images/no-image.png" class="food-img mb-2">
+{% endif %}
+
+<!-- NAME -->
+<h6 class="fw-bold">{{ food.name }} </h6>
+
+<!-- PRICE -->
+<p class="text-success fw-bold mb-2">
+$ {{ food.price }}
+</p>
+
+<!-- BUTTON -->
+ 
+<button type="button"
+class="btn btn-primary w-100 btn-sm"
+onclick="addItem({{ food.id }},'{{ food.name }}',{{ food.price }})">
+Add to Cart
+</button>
+
+</div>
+</div>
+</div>
+{% endfor %}
+
+</div>
+</div>
+
+<!-- RIGHT SIDE CART -->
+<div class="col-md-4">
+
+<div class="card shadow border-0">
+
+<div class="card-body">
+
+<h4 class="mb-3">🧾 Order Cart</h4>
+
+<!-- ORDER TYPE -->
+<div class="mb-3">
+
+<label class="fw-bold">Order Type</label>
+<select id="orderType" class="form-control mb-2">
+    <option value="table">Table</option>
+    <option value="room">Customer</option>
+    <option value="employee">Employee</option>
+</select>
+
+<!-- TABLE -->
+<div id="tableField">
+<label>Table Number</label>
+<input type="number" name="table_number" id="tableNumber"
+class="form-control">
+</div>
+
+
+<!-- EMPLOYEE -->
+<div id="employeeField" class="d-none">
+<label>Employee</label>
+<select name="employee" id="employeeSelect" class="form-control">
+<option value="">Select Employee</option>
+{% for employee in employees %} 
+<option value="{{ employee.id }}"> {{ employee }}</option>
+{% endfor %}
+</select>
+</div>
+
+
+<!-- ROOM -->
+<div id="roomField" class="d-none">
+<label>Customer</label>
+<select name="booking" id="roomSelect" class="form-control">
+<option value="">Select Customer</option>
+{% for booking in bookings %}
+<option value="{{ booking.id }}">Customer {{ booking }}</option>
+{% endfor %}
+</select>
+</div>
+
+</div>
+
+<!-- CART TABLE -->
+<div class="table-responsive">
+<table class="table table-sm table-bordered">
+
+<thead class="table-light">
+<tr>
+<th>Item</th>
+<th>Qty</th>
+<th>Total</th>
+<th></th>
+</tr>
+</thead>
+
+<tbody id="cart_table"></tbody>
+
+</table>
+</div>
+
+<h4 class="mt-3">Total: $<span id="total">0</span></h4>
+
+<input type="hidden" name="cart" id="cart_input">
+
+<div class="d-flex gap-2 mt-3">
+
+<button type="button"
+class="btn btn-outline-danger w-50"
+onclick="clearCart()">
+Clear
+</button>
+
+<button type="submit" class="btn btn-success w-50">
+Submit
+</button>
+
+</div>
+
+</div>
+</div>
+
+</div>
+
+</div>
+
+</form>
+
+</div>
+
+<!-- 🎨 STYLE -->
+<style>
+
+.food-img{
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 50%;   /* 🔥 rounded image */
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.food-img:hover{
+    transform: scale(1.1);
+}
+
+.food-card{
+    transition: 0.3s;
+    border-radius: 15px;
+}
+
+.food-card:hover{
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+</style>
+<script>
+
+let cart = []
+let total = 0
+
+// FILTER CATEGORY
+function filterCategory(cat){
+
+let items = document.querySelectorAll(".food-item")
+
+items.forEach(item => {
+
+if(cat === "all"){
+item.style.display = "block"
+}
+else if(item.dataset.category === cat){
+item.style.display = "block"
+}
+else{
+item.style.display = "none"
+}
+
+})
+
+}
+
+// ADD ITEM
+function addItem(id,name,price){
+
+let found = cart.find(i => i.id === id)
+
+if(found){
+found.qty += 1
+}else{
+cart.push({
+id:id,
+name:name,
+price:price,
+qty:1,
+note:""
+})
+}
+
+renderCart()
+}
+
+// REMOVE ITEM
+function removeItem(index){
+cart.splice(index,1)
+renderCart()
+}
+
+// CLEAR CART
+function clearCart(){
+cart = []
+renderCart()
+}
+
+// UPDATE NOTE
+function updateNote(index,value){
+cart[index].note = value
+document.getElementById("cart_input").value = JSON.stringify(cart)
+}
+
+// RENDER CART
+function renderCart(){
+
+let table = document.getElementById("cart_table")
+table.innerHTML = ""
+total = 0
+
+cart.forEach((item,index) => {
+
+let row = `
+<tr>
+<td>${item.name}</td>
+<td>${item.qty}</td>
+<td>${item.price}</td>
+<td>${item.qty * item.price}</td>
+
+<td>
+<input type="text"
+class="form-control"
+placeholder="e.g. no sugar"
+value="${item.note}"
+onchange="updateNote(${index},this.value)">
+</td>
+
+<td>
+<button type="button"
+class="btn btn-danger btn-sm"
+onclick="removeItem(${index})">
+X
+</button>
+</td>
+
+</tr>
+`
+
+table.innerHTML += row
+total += item.qty * item.price
+
+})
+
+document.getElementById("total").innerText = total
+document.getElementById("cart_input").value = JSON.stringify(cart)
+
+}
+
+// TOGGLE TABLE / ROOM
+document.getElementById("orderType").addEventListener(
+    "change",
+    function(){
+
+        let type = this.value
+
+        if(type === "table"){
+
+            document.getElementById("tableField")
+                .classList.remove("d-none")
+
+            document.getElementById("roomField")
+                .classList.add("d-none")
+
+            document.getElementById("employeeField")
+                .classList.add("d-none")
+
+            document.getElementById("tableNumber").required = true
+            document.getElementById("roomSelect").required = false
+            document.getElementById("employeeSelect").required = false
+        }
+
+        else if(type === "employee"){
+
+            document.getElementById("employeeField")
+                .classList.remove("d-none")
+
+            document.getElementById("tableField")
+                .classList.add("d-none")
+
+            document.getElementById("roomField")
+                .classList.add("d-none")
+
+            document.getElementById("employeeSelect").required = true
+            document.getElementById("tableNumber").required = false
+            document.getElementById("roomSelect").required = false
+        }
+
+        else if(type === "room"){
+
+            document.getElementById("roomField")
+                .classList.remove("d-none")
+
+            document.getElementById("tableField")
+                .classList.add("d-none")
+
+            document.getElementById("employeeField")
+                .classList.add("d-none")
+
+            document.getElementById("roomSelect").required = true
+            document.getElementById("tableNumber").required = false
+            document.getElementById("employeeSelect").required = false
+        }
+    }
+);
+
+document.getElementById("orderType")
+    .dispatchEvent(new Event("change"));
+
+</script>
+
+{% endblock %}
