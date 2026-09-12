@@ -31,7 +31,7 @@ class CustomLoginView(LoginView):
             self.request.session.set_expiry(14400)  # 15 minutes
             return "/grand/restaurant/kitchen/"
 
-        return "/"
+        return "/grand/hotel/bookings/"  # Default redirect if role is not recognized
 
 
 class NoPermissionView(TemplateView):
