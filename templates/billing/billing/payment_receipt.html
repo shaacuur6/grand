@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow p-4">
+
+    <h3 class="text-center">Payment Receipt</h3>
+    <hr>
+
+    <p><strong>Guest:</strong> {{ booking.guest }}</p>
+    <p><strong>Room:</strong> {{ booking.room.number }}</p>
+    <p><strong>Check-in:</strong> {{ booking.check_in|date:"d-M-Y" }}</p>
+    <p><strong>Check-out:</strong> {{ booking.check_out|date:"d-M-Y" }}</p>
+
+    <hr>
+
+    <h5>Invoice Summary</h5>
+
+    <p>Room Total: ${{ invoice.room_total|floatformat:2 }}</p>
+    <p>Restaurant Total: ${{ invoice.restaurant_total|floatformat:2 }}</p>
+    <p>Service Total: ${{ invoice.service_total|floatformat:2 }}</p>
+    <p>Discount: ${{ invoice.discount|floatformat:2 }}</p>
+
+    <h4>Total: ${{ invoice.total|floatformat:2 }}</h4>
+
+    <hr>
+
+    <h5>Payment History</h5>
+
+    <table class="table table-bordered">
+        <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Method</th>
+        </tr>
+
+        {% for p in payments %}
+        <tr>
+            <td>{{ p.created|date:"d-M-Y H:i" }}</td>
+            <td>${{ p.amount|floatformat:2 }}</td>
+            <td>{{ p.payment_method }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <hr>
+
+    <h5>Summary</h5>
+
+    <p><strong>Paid:</strong> ${{ paid_total|floatformat:2 }}</p>
+    <p><strong>Balance:</strong> ${{ balance|floatformat:2 }}</p>
+
+    <hr>
+
+    <p class="text-center">Thank you for your stay!</p>
+
+    <div class="text-center mt-3">
+        <button onclick="window.print()" class="btn btn-primary">
+            Print Receipt
+        </button>
+    </div>
+
+</div>
+
+</div>
+
+{% endblock %}

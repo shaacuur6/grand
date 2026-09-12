@@ -22,8 +22,9 @@ from .forms import (
 )
 from .models import Room, Booking, Guest, Service, RoomStay
 from .utils import ensure_room_stay
+from accounts.constants import ALL_ROLES, MANAGEMENT_ROLES, ADMIN_ROLES
 
-ROLES = ["admin", "manager", "reception"]
+#ROLES = ["admin", "manager", "reception"]
 CHECKOUT_CUTOFF = time(13, 0)
 
 
@@ -34,9 +35,9 @@ def hotel_now():
 def is_late_checkout(dt):
     return dt.time() > CHECKOUT_CUTOFF
 
-
+    
 class BookingListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Booking
     template_name = "hotel/booking_list.html"
     context_object_name = "bookings"
@@ -48,7 +49,7 @@ class BookingListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
 
 
 class BookingDetailView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     template_name = "hotel/booking_detail.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -84,7 +85,7 @@ class BookingDetailView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
 
 
 class BookingCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Booking
     form_class = BookingForm
     template_name = "hotel/booking_form.html"
@@ -107,7 +108,7 @@ class BookingCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
 
 
 class BookingUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
-    allowed_roles = ROLES
+    allowed_roles = MANAGEMENT_ROLES
     model = Booking
     form_class = BookingUpdateForm
     template_name = "hotel/booking_form.html"
@@ -145,7 +146,7 @@ class BookingUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
 
 
 class CheckInView(LoginRequiredMixin, RoleRequiredMixin, View):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
 
     @transaction.atomic
     def post(self, request, pk):
@@ -177,7 +178,7 @@ class CheckInView(LoginRequiredMixin, RoleRequiredMixin, View):
 
 
 class RoomTransferView(LoginRequiredMixin, RoleRequiredMixin, FormView):
-    allowed_roles = ROLES
+    allowed_roles = MANAGEMENT_ROLES
     template_name = "hotel/room_transfer_form.html"
     form_class = RoomTransferForm
 
@@ -258,7 +259,7 @@ class RoomTransferView(LoginRequiredMixin, RoleRequiredMixin, FormView):
 
 
 class BookingCheckOutView(LoginRequiredMixin, RoleRequiredMixin, FormView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     template_name = "hotel/booking_checkout.html"
     form_class = CheckoutForm
 
@@ -342,13 +343,13 @@ class BookingCheckOutView(LoginRequiredMixin, RoleRequiredMixin, FormView):
 
 
 class CheckOutView(LoginRequiredMixin, RoleRequiredMixin, View):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     def get(self, request, pk):
         return redirect("booking_check_out", pk=pk)
 
 
 class RoomListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Room
     template_name = "hotel/room_list.html"
     context_object_name = "rooms"
@@ -356,7 +357,7 @@ class RoomListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
 
 
 class RoomCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
-    allowed_roles = ["admin", "manager"]
+    allowed_roles = MANAGEMENT_ROLES
     model = Room
     form_class = RoomForm
     template_name = "hotel/room_form.html"
@@ -367,7 +368,7 @@ class RoomCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
 
 
 class RoomUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
-    allowed_roles = ["admin", "manager"]
+    allowed_roles = MANAGEMENT_ROLES
     model = Room
     form_class = RoomForm
     template_name = "hotel/room_form.html"
@@ -375,7 +376,7 @@ class RoomUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
 
 
 class GuestListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Guest
     template_name = "hotel/guest_list.html"
     context_object_name = "guests"
@@ -383,7 +384,7 @@ class GuestListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
 
 
 class GuestCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Guest
     form_class = GuestForm
     template_name = "hotel/guest_form.html"
@@ -394,7 +395,7 @@ class GuestCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
 
 
 class GuestCreateAjaxView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Guest
     fields = ["first_name", "last_name", "phone", "email", "address"]
     def form_valid(self, form):
@@ -407,7 +408,7 @@ class GuestCreateAjaxView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
 
 
 class GuestUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Guest
     form_class = GuestForm
     template_name = "hotel/guest_form.html"
@@ -415,19 +416,19 @@ class GuestUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
 
 
 class BookingDeleteView(LoginRequiredMixin, RoleRequiredMixin, DeleteView):
-    allowed_roles = ["admin", "manager"]
+    allowed_roles = MANAGEMENT_ROLES
     model = Booking
     template_name = "hotel/booking_confirm_delete.html"
     success_url = reverse_lazy("booking_list")
 
 
 class DashboardView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
-    allowed_roles = ROLES
+    allowed_roles = MANAGEMENT_ROLES
     template_name = "dashboard.html"
 
 
 class ServiceListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Service
     template_name = "services/service_list.html"
     context_object_name = "services"
@@ -435,7 +436,7 @@ class ServiceListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
 
 
 class ServiceCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
-    allowed_roles = ROLES
+    allowed_roles = ALL_ROLES
     model = Service
     form_class = ServiceForm
     template_name = "services/service_form.html"
@@ -449,7 +450,7 @@ class ServiceCreateView(LoginRequiredMixin, RoleRequiredMixin, CreateView):
 
 
 class ServiceUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
-    allowed_roles = ROLES
+    allowed_roles = MANAGEMENT_ROLES
     model = Service
     form_class = ServiceForm
     template_name = "services/service_form.html"
@@ -463,7 +464,7 @@ class ServiceUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
 
 
 class ServiceDeleteView(LoginRequiredMixin, RoleRequiredMixin, DeleteView):
-    allowed_roles = ROLES
+    allowed_roles = MANAGEMENT_ROLES
     model = Service
     template_name = "services/service_confirm_delete.html"
     success_url = reverse_lazy("service_list")
