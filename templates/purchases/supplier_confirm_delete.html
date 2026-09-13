@@ -1,14 +1,1 @@
-{% extends "base.html" %}
-<!-- Confirm Delete Supplier -->
- 
-{% block content %}
-<div class="container mt-4">
-    <h2>Confirm Delete Supplier</h2>
-    <p>Are you sure you want to delete the supplier "{{ supplier.name }}"?</p>
-    <form method="post">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger">Delete</button>
-        <a href="{% url 'supplier_list' %}" class="btn btn-secondary">Cancel</a>
-    </form>
-</div>
-{% endblock %}
+{% extends "base.html" %}{% block content %}<div class="card"><div class="card-body"><h3>Delete {{ object }}?</h3><p>Only do this if this supplier has no purchases you need to retain.</p><form method="post">{% csrf_token %}<button class="btn btn-danger">Delete</button> <a class="btn btn-secondary" href="{% url 'supplier_detail' object.id %}">Cancel</a></form></div></div>{% endblock %}

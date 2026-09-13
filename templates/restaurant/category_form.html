@@ -1,13 +1,1 @@
-{% extends 'base.html' %}
-
-{% block content %}      
-<h2>Food Category Form</h2> 
-<form method="post">
-
-{% csrf_token %}
-
-{{ form.as_p }}
-<button class="btn btn-success">Save</button>
-</form>
-
-{% endblock %}
+{% extends "base.html" %}{% block content %}<div class="card border-0 shadow-sm"><div class="card-body"><h3>Food Category</h3><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Save</button> <a class="btn btn-secondary" href="{% url 'category_list' %}">Cancel</a></form></div></div>{% endblock %}

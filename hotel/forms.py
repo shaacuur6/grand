@@ -34,23 +34,73 @@ class GuestForm(BootstrapModelForm):
 class RoomForm(BootstrapModelForm):
     class Meta:
         model = Room
-        fields = ["number", "room_type", "price", "price_with_ac", "status"]
+        fields = [
+            "number",
+            "room_type",
+            "price",
+            "price_with_ac",
+            "status",
+        ]
         widgets = {
-            "price": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
-            "price_with_ac": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
+            "number": forms.TextInput(
+                attrs={
+                    "placeholder": "Room number",
+                }
+            ),
+            "room_type": forms.Select(),
+            "price": forms.NumberInput(
+                attrs={
+                    "step": "0.01",
+                    "min": "0",
+                    "placeholder": "Regular price",
+                }
+            ),
+            "price_with_ac": forms.NumberInput(
+                attrs={
+                    "step": "0.01",
+                    "min": "0",
+                    "placeholder": "Price with AC",
+                }
+            ),
+            "status": forms.Select(),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._bootstrap()
+
     def clean(self):
-        return super().clean()
+        cleaned = super().clean()
+
+        price = cleaned.get("price")
+        price_with_ac = cleaned.get("price_with_ac")
+
+        if price is not None and price < 0:
+            self.add_error(
+                "price",
+                "Room price cannot be negative."
+            )
+
+        if price_with_ac is not None and price_with_ac < 0:
+            self.add_error(
+                "price_with_ac",
+                "AC room price cannot be negative."
+            )
+
+        return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        instance.is_available = instance.status == "available"
+
+        instance.is_available = (
+            instance.status == "available"
+        )
+
         if commit:
             instance.save()
             self.save_m2m()
-        return instance
 
+        return instance
 
 class BookingForm(BootstrapModelForm):
     class Meta:
