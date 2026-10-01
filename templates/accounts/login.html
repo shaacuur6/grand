@@ -1,19 +1,256 @@
+
 {% extends "base.html" %}
+
+{% block title %}
+    Login
+{% endblock %}
+
 {% block content %}
 
-<div class="container mt-5" style="max-width:400px;">
+<style>
+    .login-wrapper {
+        min-height: calc(100vh - 120px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 15px;
+    }
 
-<h3 class="text-center">Login</h3>
+    .login-card {
+        width: 100%;
+        max-width: 420px;
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 18px;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
 
-<form method="post">
-    {% csrf_token %}
+    .login-header {
+        text-align: center;
+        padding: 35px 30px 25px;
+        background: linear-gradient(135deg, #f8f9fa, #ffffff);
+    }
 
-    <input type="text" name="username" class="form-control mb-2" placeholder="Username">
-    <input type="password" name="password" class="form-control mb-2" placeholder="Password">
+    .login-icon {
+        width: 70px;
+        height: 70px;
+        margin: 0 auto 18px;
+        border-radius: 50%;
+        background: #0d6efd;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        box-shadow: 0 8px 20px rgba(13, 110, 253, 0.25);
+    }
 
-    <button class="btn btn-primary w-100">Login</button>
-</form>
+    .login-header h3 {
+        margin-bottom: 7px;
+        font-weight: 700;
+        color: #212529;
+    }
+
+    .login-header p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 14px;
+    }
+
+    .login-body {
+        padding: 30px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #343a40;
+        margin-bottom: 7px;
+    }
+
+    .input-group-text {
+        background: #f8f9fa;
+        border-right: 0;
+        color: #6c757d;
+    }
+
+    .form-control {
+        border-left: 0;
+        padding: 11px 12px;
+        height: 46px;
+    }
+
+    .form-control:focus {
+        box-shadow: none;
+        border-color: #86b7fe;
+    }
+
+    .input-group:focus-within .input-group-text {
+        border-color: #86b7fe;
+        color: #0d6efd;
+    }
+
+    .login-btn {
+        height: 48px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 16px;
+        margin-top: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .login-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 15px rgba(13, 110, 253, 0.25);
+    }
+
+    .login-footer {
+        text-align: center;
+        padding: 0 30px 25px;
+        color: #6c757d;
+        font-size: 13px;
+    }
+</style>
+
+<div class="login-wrapper">
+
+    <div class="login-card">
+
+        <!-- Header -->
+        <div class="login-header">
+
+            <div class="login-icon">
+                <i class="bi bi-person-lock"></i>
+            </div>
+
+            <h3>Welcome Back</h3>
+
+            <p>Sign in to your account to continue</p>
+
+        </div>
+
+
+        <!-- Form -->
+        <div class="login-body">
+
+            <form method="post">
+
+                {% csrf_token %}
+
+                <!-- Username -->
+                <div class="mb-3">
+
+                    <label for="username" class="form-label">
+                        Username
+                    </label>
+
+                    <div class="input-group">
+
+                        <span class="input-group-text">
+                            <i class="bi bi-person"></i>
+                        </span>
+
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            class="form-control"
+                            placeholder="Enter your username"
+                            autocomplete="username"
+                            required
+                            autofocus
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- Password -->
+                <div class="mb-4">
+
+                    <label for="password" class="form-label">
+                        Password
+                    </label>
+
+                    <div class="input-group">
+
+                        <span class="input-group-text">
+                            <i class="bi bi-lock"></i>
+                        </span>
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-control"
+                            placeholder="Enter your password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary"
+                            id="togglePassword"
+                            title="Show password"
+                        >
+                            <i class="bi bi-eye"></i>
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Login Button -->
+                <button
+                    type="submit"
+                    class="btn btn-primary w-100 login-btn"
+                >
+                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                    Login
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- Footer -->
+        <div class="login-footer">
+            <i class="bi bi-shield-check me-1"></i>
+            Secure account access
+        </div>
+
+    </div>
 
 </div>
+
+
+<script>
+    document.getElementById("togglePassword").addEventListener("click", function () {
+
+        const password = document.getElementById("password");
+        const icon = this.querySelector("i");
+
+        if (password.type === "password") {
+
+            password.type = "text";
+            icon.classList.remove("bi-eye");
+            icon.classList.add("bi-eye-slash");
+            this.title = "Hide password";
+
+        } else {
+
+            password.type = "password";
+            icon.classList.remove("bi-eye-slash");
+            icon.classList.add("bi-eye");
+            this.title = "Show password";
+
+        }
+
+    });
+</script>
 
 {% endblock %}
