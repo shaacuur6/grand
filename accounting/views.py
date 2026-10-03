@@ -9,7 +9,7 @@ from accounts.constants import MANAGEMENT_ROLES
 from accounts.mixins import RoleRequiredMixin
 from .models import Account, AccountingPeriod, JournalEntry, JournalLine, SupplierPayment, InventoryMovement
 from .forms import AccountForm, PeriodForm, JournalForm, JournalLineFormSet, SupplierPaymentForm, InventoryMovementForm, OpeningBalanceForm
-from .services import seed_accounts, sync_operational_journals, post_supplier_payment, post_inventory_movement, account, period_for, get_operational_receivables_as_of, get_authoritative_profit_loss
+from .services import seed_accounts, sync_operational_journals, post_supplier_payment, post_inventory_movement, account, period_for, get_operational_receivables_as_of
 
 class AccountingRoleMixin(LoginRequiredMixin, RoleRequiredMixin): allowed_roles=MANAGEMENT_ROLES
 
@@ -200,51 +200,135 @@ class ProfitLossView(StatementBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         start, end = _date_range(self.request)
-        pl = get_authoritative_profit_loss(start, end)
+        rows = self.rows(['revenue', 'cogs', 'expense'], start, end)
+        revenue = sum(r['balance'] for r in rows if r['account__account_type'] == 'revenue')
+        posted_cogs = sum(r['balance'] for r in rows if r['account__account_type'] == 'cogs')
+        expenses = sum(r['balance'] for r in rows if r['account__account_type'] == 'expense')
+
+        # The operational Finance P&L currently treats purchases as its cost
+        # basis. The formal accounting ledger only has COGS when inventory is
+        # actually issued/consumed. If no COGS has been posted for the selected
+        # period, expose the same purchase-based figure so the two P&Ls do not
+        # appear to disagree. This is explicitly labelled as management-basis
+        # COGS and does not alter the Balance Sheet inventory value.
+        from purchases.models import Purchase
+        purchase_cogs = Purchase.objects.filter(
+            date__gte=start, date__lte=end
+        ).aggregate(total=Sum('total_amount'))['total'] or Decimal('0')
+
+        if posted_cogs:
+            cogs = posted_cogs
+            cogs_source = 'Posted inventory consumption (COGS)'
+            cogs_is_management_basis = False
+        else:
+            cogs = purchase_cogs
+            cogs_source = 'Purchases / COGS (management basis)'
+            cogs_is_management_basis = True
+
         c.update(
-            start=start, end=end,
-            rows=self.rows(['revenue', 'cogs', 'expense'], start, end),
-            revenue=pl['revenue']['total'],
-            cogs=pl['cogs'],
-            posted_cogs=pl['posted_cogs'],
-            purchase_cogs=pl['purchase_cogs'],
-            cogs_source=pl['cogs_source'],
-            cogs_is_management_basis=pl['cogs_is_management_basis'],
-            gross_profit=pl['gross_profit'],
-            expenses=pl['expenses'],
-            net_profit=pl['net_profit'],
+            start=start, end=end, rows=rows, revenue=revenue,
+            cogs=cogs, posted_cogs=posted_cogs, purchase_cogs=purchase_cogs,
+            cogs_source=cogs_source, cogs_is_management_basis=cogs_is_management_basis,
+            gross_profit=revenue-cogs, expenses=expenses,
+            net_profit=revenue-cogs-expenses,
         )
         return c
 class BalanceSheetView(StatementBase):
     template_name='accounting/balance_sheet.html'
-    def get_context_data(self,**kwargs):
+
+    def get_context_data(self, **kwargs):
         from datetime import date
-        c=super().get_context_data(**kwargs)
-        start,end=_date_range(self.request)
-        rows=self.rows(['asset','liability','equity'],date.min,end)
-        assets=[r for r in rows if r['account__account_type']=='asset']
-        # Accounts Receivable is reconciled to the same operational, as-of-date
-        # customer balance used by Finance. The journal ledger can contain
-        # historical postings or legacy entries, so using its raw lifetime
-        # balance here can disagree with customer receivables.
-        operational_ar = get_operational_receivables_as_of(end)
+        c = super().get_context_data(**kwargs)
+
+        # A balance sheet is a point-in-time statement, not a period statement.
+        # Keep accepting the old `end` parameter for bookmarked URLs, but ignore
+        # the start date for balance-sheet calculations.
+        today = __import__('django.utils.timezone', fromlist=['localdate']).localdate()
+        as_of = self.request.GET.get('as_of') or self.request.GET.get('end') or today.isoformat()
+        try:
+            as_of_date = date.fromisoformat(as_of) if isinstance(as_of, str) else as_of
+        except (TypeError, ValueError):
+            as_of_date = today
+            as_of = today.isoformat()
+
+        # Balance-sheet accounts are cumulative from the beginning of the
+        # accounting records through the selected as-of date.
+        rows = self.rows(['asset', 'liability', 'equity'], date.min, as_of_date)
+        assets = [r for r in rows if r['account__account_type'] == 'asset']
+
+        # Accounts Receivable uses the same operational as-of calculation as
+        # Finance, so an old booking paid today is reflected correctly in cash
+        # and AR even though the original revenue was earned before the current
+        # reporting period.
+        operational_ar = get_operational_receivables_as_of(as_of_date)
         for row in assets:
             if row['account__code'] == '1100':
                 row['debit'] = operational_ar
                 row['credit'] = Decimal('0.00')
                 row['balance'] = operational_ar
-        liab=[r for r in rows if r['account__account_type']=='liability']
-        eq=[r for r in rows if r['account__account_type']=='equity']
-        # Current-period profit is part of equity on the balance sheet.
-        pl_rows=self.rows(['revenue','cogs','expense'],start,end)
-        revenue=sum(r['balance'] for r in pl_rows if r['account__account_type']=='revenue')
-        cogs=sum(r['balance'] for r in pl_rows if r['account__account_type']=='cogs')
-        expenses=sum(r['balance'] for r in pl_rows if r['account__account_type']=='expense')
-        retained=revenue-cogs-expenses
-        total_assets=sum(r['balance'] for r in assets)
-        total_liabilities=sum(r['balance'] for r in liab)
-        total_equity=sum(r['balance'] for r in eq)+retained
-        c.update(start=start,end=end,assets=assets,liabilities=liab,equity=eq,net_profit=retained,total_assets=total_assets,total_liabilities=total_liabilities,total_equity=total_equity)
+
+        liab = [r for r in rows if r['account__account_type'] == 'liability']
+        eq = [r for r in rows if r['account__account_type'] == 'equity']
+
+        # Retained earnings on an unclosed ledger are the cumulative net income
+        # earned through the balance-sheet date, not just the current report
+        # period. This is essential for point-in-time balance sheets: revenue
+        # earned in September remains part of equity when a September customer
+        # pays in October.
+        cumulative_pl = self.rows(
+            ['revenue', 'cogs', 'expense'],
+            date.min,
+            as_of_date,
+        )
+        revenue = sum(
+            r['balance'] for r in cumulative_pl
+            if r['account__account_type'] == 'revenue'
+        )
+        cogs = sum(
+            r['balance'] for r in cumulative_pl
+            if r['account__account_type'] == 'cogs'
+        )
+        expenses = sum(
+            r['balance'] for r in cumulative_pl
+            if r['account__account_type'] == 'expense'
+        )
+        cumulative_profit = revenue - cogs - expenses
+
+        # Still expose the profit earned during the current calendar/reporting
+        # period for reference, but do not use it as the whole equity balance.
+        start, _ = _date_range(self.request)
+        period_pl = self.rows(['revenue', 'cogs', 'expense'], start, as_of_date)
+        period_revenue = sum(
+            r['balance'] for r in period_pl
+            if r['account__account_type'] == 'revenue'
+        )
+        period_cogs = sum(
+            r['balance'] for r in period_pl
+            if r['account__account_type'] == 'cogs'
+        )
+        period_expenses = sum(
+            r['balance'] for r in period_pl
+            if r['account__account_type'] == 'expense'
+        )
+        period_profit = period_revenue - period_cogs - period_expenses
+
+        total_assets = sum(r['balance'] for r in assets)
+        total_liabilities = sum(r['balance'] for r in liab)
+        total_equity = sum(r['balance'] for r in eq) + cumulative_profit
+
+        c.update(
+            as_of=as_of,
+            start=start,
+            end=as_of,
+            assets=assets,
+            liabilities=liab,
+            equity=eq,
+            net_profit=period_profit,
+            cumulative_profit=cumulative_profit,
+            total_assets=total_assets,
+            total_liabilities=total_liabilities,
+            total_equity=total_equity,
+        )
         return c
 class CashFlowView(StatementBase):
     template_name='accounting/cash_flow.html'

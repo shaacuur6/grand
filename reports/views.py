@@ -366,26 +366,16 @@ class FinancialReportBase(ReportBase):
             end = today
         return form, start, end
 
-    def _financials(self, start, end):
-        # Finance and Accounting P&L must use exactly the same authoritative
-        # accounting basis. This prevents gaps caused by independently
-        # calculating room nights, restaurant sales, discounts, expenses, or
-        # COGS from different operational tables.
-        from accounting.services import get_authoritative_profit_loss
-        return get_authoritative_profit_loss(start, end, user=self.request.user)
-
     def _revenue(self, start, end):
-        pl = self._financials(start, end)
-        return pl['revenue']
+        room = _room_revenue_between(start, end)
+        orders = Order.objects.filter(created_at__date__gte=start, created_at__date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+        services = Service.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+        return {'room': room, 'restaurant': orders, 'services': services, 'total': room + orders + services}
 
     def _costs(self, start, end):
-        pl = self._financials(start, end)
-        return {
-            'purchases': pl['cogs'],
-            'expenses': pl['expenses'],
-            'total': pl['cogs'] + pl['expenses'],
-            'cogs_source': pl['cogs_source'],
-        }
+        purchases = Purchase.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+        expenses = Expense.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        return {'purchases': purchases, 'expenses': expenses, 'total': purchases + expenses}
 
 
 class FinancialDashboardView(FinancialReportBase):
@@ -394,14 +384,8 @@ class FinancialDashboardView(FinancialReportBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        pl = self._financials(start, end)
-        revenue = pl['revenue']
-        costs = {
-            'purchases': pl['cogs'],
-            'expenses': pl['expenses'],
-            'total': pl['cogs'] + pl['expenses'],
-            'cogs_source': pl['cogs_source'],
-        }
+        revenue = self._revenue(start, end)
+        costs = self._costs(start, end)
         collections = Payment.objects.filter(created__date__gte=start, created__date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         cash_out = costs['total']
         profit = revenue['total'] - costs['total']
@@ -418,16 +402,10 @@ class ProfitLossReportView(FinancialReportBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        pl = self._financials(start, end)
-        revenue = pl['revenue']
-        costs = {
-            'purchases': pl['cogs'],
-            'expenses': pl['expenses'],
-            'total': pl['cogs'] + pl['expenses'],
-            'cogs_source': pl['cogs_source'],
-        }
-        gross_result = pl['gross_profit']
-        net_profit = pl['net_profit']
+        revenue = self._revenue(start, end)
+        costs = self._costs(start, end)
+        gross_result = revenue['total'] - costs['purchases']
+        net_profit = gross_result - costs['expenses']
         margin = (net_profit / revenue['total'] * 100) if revenue['total'] else Decimal('0.00')
         expense_rows = Expense.objects.filter(date__gte=start, date__lte=end).values('category__name').annotate(total=Sum('amount')).order_by('-total')
         c.update(form=form, start=start, end=end, revenue=revenue, costs=costs, gross_result=gross_result,

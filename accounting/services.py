@@ -15,23 +15,7 @@ DEFAULT_ACCOUNTS=[
 def seed_accounts():
     for code,name,typ in DEFAULT_ACCOUNTS: Account.objects.get_or_create(code=code,defaults={'name':name,'account_type':typ})
 
-def account(code):
-    """Return a standard account, creating it if an existing database is missing it.
-
-    Older/existing installations may have the accounting schema without having
-    received the seed rows from the initial migration. Transaction posting must
-    therefore be safe to run against such databases.
-    """
-    for item_code, name, typ in DEFAULT_ACCOUNTS:
-        if item_code == str(code):
-            obj, _ = Account.objects.get_or_create(
-                code=item_code,
-                defaults={'name': name, 'account_type': typ},
-            )
-            return obj
-    # Keep unexpected account codes explicit instead of silently creating a
-    # malformed account.
-    raise ValueError(f'Unknown standard accounting account code: {code}')
+def account(code): return Account.objects.get(code=code)
 
 def period_for(date):
     p=AccountingPeriod.objects.filter(start_date__lte=date,end_date__gte=date,status=AccountingPeriod.OPEN).first()
@@ -179,84 +163,6 @@ def sync_operational_journals(user=None):
         counts[key]=n
     return counts
 
-
-
-def get_authoritative_profit_loss(start, end, user=None):
-    """Return the single authoritative management/accounting P&L basis.
-
-    Finance and Accounting reports must not independently calculate revenue or
-    costs from operational tables because that can produce different totals.
-    The accounting journal is the common source of truth.  COGS falls back to
-    period purchases only when there is no posted inventory COGS in the period,
-    matching the existing management-basis policy.
-    """
-    from django.db.models import Sum
-    from purchases.models import Purchase
-
-    seed_accounts()
-    if user is not None:
-        sync_operational_journals(user)
-
-    qs = JournalLine.objects.filter(
-        entry__date__gte=start,
-        entry__date__lte=end,
-        entry__is_posted=True,
-    ).select_related('account')
-
-    def account_balance(code):
-        row = qs.filter(account__code=code).aggregate(
-            debit=Sum('debit'), credit=Sum('credit')
-        )
-        return (row['credit'] or Decimal('0.00')) - (row['debit'] or Decimal('0.00'))
-
-    revenue = {
-        'room': account_balance('4000'),
-        'restaurant': account_balance('4100'),
-        'services': account_balance('4200'),
-    }
-    # 4900 is a contra-revenue account stored as a revenue-type account, so
-    # its journal balance is already negative and belongs in total revenue.
-    discounts = account_balance('4900')
-    revenue['total'] = (
-        sum(revenue.values(), Decimal('0.00')) + discounts
-    )
-
-    posted_cogs_row = qs.filter(account__account_type='cogs').aggregate(
-        debit=Sum('debit'), credit=Sum('credit')
-    )
-    posted_cogs = (posted_cogs_row['debit'] or Decimal('0.00')) - (posted_cogs_row['credit'] or Decimal('0.00'))
-    purchase_cogs = Purchase.objects.filter(
-        date__gte=start, date__lte=end
-    ).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
-
-    if posted_cogs:
-        cogs = posted_cogs
-        cogs_source = 'Posted inventory consumption (COGS)'
-        cogs_is_management_basis = False
-    else:
-        cogs = purchase_cogs
-        cogs_source = 'Purchases / COGS (management basis)'
-        cogs_is_management_basis = True
-
-    expense_row = qs.filter(account__account_type='expense').aggregate(
-        debit=Sum('debit'), credit=Sum('credit')
-    )
-    expenses = (expense_row['debit'] or Decimal('0.00')) - (expense_row['credit'] or Decimal('0.00'))
-
-    gross_profit = revenue['total'] - cogs
-    net_profit = gross_profit - expenses
-    return {
-        'revenue': revenue,
-        'discounts': discounts,
-        'cogs': cogs,
-        'posted_cogs': posted_cogs,
-        'purchase_cogs': purchase_cogs,
-        'cogs_source': cogs_source,
-        'cogs_is_management_basis': cogs_is_management_basis,
-        'expenses': expenses,
-        'gross_profit': gross_profit,
-        'net_profit': net_profit,
-    }
 
 def get_operational_receivables_as_of(end_date):
     """Return the HMS customer receivable balance as of a date.
