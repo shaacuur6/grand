@@ -22,6 +22,21 @@ jobs:
 
             cd /root/grand
 
+            echo "================================="
+            echo "Starting Grand HMS deployment"
+            echo "================================="
+
+            echo "Creating PostgreSQL backup..."
+
+            mkdir -p /root/backups/grand
+
+            BACKUP_FILE="/root/backups/grand/grand_$(date +%Y%m%d_%H%M%S).sql"
+
+            sudo -u postgres pg_dump grand_db > "$BACKUP_FILE"
+
+            echo "Backup created:"
+            echo "$BACKUP_FILE"
+
             echo "Fetching latest code..."
             git fetch origin
 
@@ -46,4 +61,6 @@ jobs:
             echo "Checking Grand HMS..."
             systemctl is-active --quiet grand
 
+            echo "================================="
             echo "Grand HMS deployment successful"
+            echo "================================="
