@@ -26,15 +26,15 @@ jobs:
             echo "Starting Grand HMS deployment"
             echo "================================="
 
-            echo "Creating PostgreSQL backup..."
+            echo "Creating SQLite backup..."
 
             mkdir -p /root/backups/grand
 
-            BACKUP_FILE="/root/backups/grand/grand_$(date +%Y%m%d_%H%M%S).sql"
+            BACKUP_FILE="/root/backups/grand/db_$(date +%Y%m%d_%H%M%S).sqlite3"
 
-            sudo -u postgres pg_dump grand_db > "$BACKUP_FILE"
+            cp db.sqlite3 "$BACKUP_FILE"
 
-            echo "Backup created:"
+            echo "Database backup created:"
             echo "$BACKUP_FILE"
 
             echo "Fetching latest code..."
