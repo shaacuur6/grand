@@ -1,0 +1,49 @@
+name: Deploy Grand HMS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /root/grand
+
+            echo "Fetching latest code..."
+            git fetch origin
+
+            echo "Updating Grand HMS..."
+            git reset --hard origin/main
+
+            echo "Activating virtual environment..."
+            source venv/bin/activate
+
+            echo "Installing requirements..."
+            pip install -r requirements.txt
+
+            echo "Running migrations..."
+            python manage.py migrate --noinput
+
+            echo "Collecting static files..."
+            python manage.py collectstatic --noinput
+
+            echo "Restarting Grand HMS..."
+            systemctl restart grand
+
+            echo "Checking Grand HMS..."
+            systemctl is-active --quiet grand
+
+            echo "Grand HMS deployment successful"
