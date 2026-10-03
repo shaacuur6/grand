@@ -200,39 +200,11 @@ class ProfitLossView(StatementBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         start, end = _date_range(self.request)
-        rows = self.rows(['revenue', 'cogs', 'expense'], start, end)
-        revenue = sum(r['balance'] for r in rows if r['account__account_type'] == 'revenue')
-        posted_cogs = sum(r['balance'] for r in rows if r['account__account_type'] == 'cogs')
-        expenses = sum(r['balance'] for r in rows if r['account__account_type'] == 'expense')
-
-        # The operational Finance P&L currently treats purchases as its cost
-        # basis. The formal accounting ledger only has COGS when inventory is
-        # actually issued/consumed. If no COGS has been posted for the selected
-        # period, expose the same purchase-based figure so the two P&Ls do not
-        # appear to disagree. This is explicitly labelled as management-basis
-        # COGS and does not alter the Balance Sheet inventory value.
-        from purchases.models import Purchase
-        purchase_cogs = Purchase.objects.filter(
-            date__gte=start, date__lte=end
-        ).aggregate(total=Sum('total_amount'))['total'] or Decimal('0')
-
-        if posted_cogs:
-            cogs = posted_cogs
-            cogs_source = 'Posted inventory consumption (COGS)'
-            cogs_is_management_basis = False
-        else:
-            cogs = purchase_cogs
-            cogs_source = 'Purchases / COGS (management basis)'
-            cogs_is_management_basis = True
-
-        c.update(
-            start=start, end=end, rows=rows, revenue=revenue,
-            cogs=cogs, posted_cogs=posted_cogs, purchase_cogs=purchase_cogs,
-            cogs_source=cogs_source, cogs_is_management_basis=cogs_is_management_basis,
-            gross_profit=revenue-cogs, expenses=expenses,
-            net_profit=revenue-cogs-expenses,
-        )
+        from .services import get_profit_loss_statement
+        pnl = get_profit_loss_statement(start, end)
+        c.update(start=start, end=end, **pnl)
         return c
+
 class BalanceSheetView(StatementBase):
     template_name='accounting/balance_sheet.html'
 

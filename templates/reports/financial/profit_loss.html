@@ -1,1 +1,34 @@
-{% extends "base.html" %}{% block title %}Profit & Loss | Grand HMS{% endblock %}{% block content %}<div class="mb-4"><h2 class="fw-bold">Profit & Loss Statement</h2><p class="text-muted">Management-basis statement for {{ start }} to {{ end }}.</p></div>{% include "reports/financial/_filter.html" %}<div class="card"><div class="card-body p-4"><table class="table table-borderless align-middle"><tr><th colspan="2" class="fs-5">Revenue</th></tr><tr><td>Room Revenue</td><td class="text-end">{{ revenue.room|floatformat:2 }}</td></tr><tr><td>Restaurant Revenue</td><td class="text-end">{{ revenue.restaurant|floatformat:2 }}</td></tr><tr><td>Service Revenue</td><td class="text-end">{{ revenue.services|floatformat:2 }}</td></tr><tr class="border-top"><th>Total Revenue</th><th class="text-end">{{ revenue.total|floatformat:2 }}</th></tr><tr><th colspan="2" class="fs-5 pt-4">Costs</th></tr><tr><td>Purchases / Cost of Operations</td><td class="text-end">{{ costs.purchases|floatformat:2 }}</td></tr><tr><td>Operating Expenses</td><td class="text-end">{{ costs.expenses|floatformat:2 }}</td></tr><tr class="border-top"><th>Gross Result after Purchases</th><th class="text-end">{{ gross_result|floatformat:2 }}</th></tr><tr class="border-top"><th class="fs-5">Net Profit / (Loss)</th><th class="text-end fs-5 {% if net_profit < 0 %}text-danger{% else %}text-success{% endif %}">{{ net_profit|floatformat:2 }}</th></tr><tr><td>Net Margin</td><td class="text-end">{{ margin|floatformat:2 }}%</td></tr></table><hr><h5 class="fw-bold">Expense breakdown</h5><table class="table table-sm"><thead><tr><th>Category</th><th class="text-end">Amount</th></tr></thead><tbody>{% for row in expense_rows %}<tr><td>{{ row.category__name }}</td><td class="text-end">{{ row.total|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted">No operating expenses in this period.</td></tr>{% endfor %}</tbody></table><div class="alert alert-info mt-3 mb-0"><i class="bi bi-info-circle"></i> This is a management-basis P&L. Purchases are shown as costs because the current inventory model does not yet track consumption/COGS separately.</div></div></div>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Profit & Loss | Grand HMS{% endblock %}
+{% block content %}
+<div class="mb-4"><h2 class="fw-bold">Profit &amp; Loss Statement</h2><p class="text-muted">For the period: {{ start }} to {{ end }}.</p></div>
+{% include "reports/financial/_filter.html" %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Total Revenue</small><h4>{{ revenue.total|floatformat:2 }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Gross Profit</small><h4>{{ gross_profit|floatformat:2 }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Operating Expenses</small><h4>{{ costs.expenses|floatformat:2 }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Net Profit / (Loss)</small><h4 class="{% if net_profit < 0 %}text-danger{% else %}text-success{% endif %}">{{ net_profit|floatformat:2 }}</h4></div></div></div>
+</div>
+<div class="card mb-3"><div class="card-body">
+<table class="table table-borderless align-middle mb-0">
+<tr><th colspan="2" class="fs-5">REVENUE</th></tr>
+<tr><td>Room Revenue</td><td class="text-end">{{ revenue.room|floatformat:2 }}</td></tr>
+<tr><td>Restaurant Revenue</td><td class="text-end">{{ revenue.restaurant|floatformat:2 }}</td></tr>
+<tr><td>Service Revenue</td><td class="text-end">{{ revenue.services|floatformat:2 }}</td></tr>
+<tr><td>Sales Discounts</td><td class="text-end">{{ revenue.discounts|floatformat:2 }}</td></tr>
+<tr class="border-top fw-bold"><td>Total Revenue</td><td class="text-end">{{ revenue.total|floatformat:2 }}</td></tr>
+<tr><th colspan="2" class="fs-5 pt-4">COST OF SALES / COST OF REVENUE</th></tr>
+<tr><td>Cost of Goods Sold</td><td class="text-end">{{ cogs|floatformat:2 }}</td></tr>
+<tr class="border-top fw-bold"><td>Gross Profit</td><td class="text-end">{{ gross_profit|floatformat:2 }}</td></tr>
+<tr><td>Gross Profit Margin</td><td class="text-end">{{ gross_margin|floatformat:2 }}%</td></tr>
+<tr><th colspan="2" class="fs-5 pt-4">OPERATING EXPENSES</th></tr>
+{% for row in expense_rows %}<tr><td>{{ row.category__name }}</td><td class="text-end">{{ row.total|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted">No operating expenses in this period.</td></tr>{% endfor %}
+<tr class="border-top fw-bold"><td>Total Operating Expenses</td><td class="text-end">{{ costs.expenses|floatformat:2 }}</td></tr>
+<tr class="border-top fw-bold"><td>Operating Profit</td><td class="text-end">{{ operating_profit|floatformat:2 }}</td></tr>
+<tr><td>Operating Margin</td><td class="text-end">{{ operating_margin|floatformat:2 }}%</td></tr>
+<tr class="border-top fw-bold fs-5"><td>NET PROFIT / (LOSS)</td><td class="text-end">{{ net_profit|floatformat:2 }}</td></tr>
+<tr><td>Net Profit Margin</td><td class="text-end">{{ margin|floatformat:2 }}%</td></tr>
+</table>
+</div></div>
+<div class="alert alert-info"><strong>COGS basis:</strong> {{ cogs_source }}. Finance and Accounting use the same authoritative accounting calculation.</div>
+{% endblock %}

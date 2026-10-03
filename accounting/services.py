@@ -201,3 +201,70 @@ def get_operational_receivables_as_of(end_date):
         )
         total += max(Decimal('0.00'), amount - paid)
     return total
+
+
+def get_profit_loss_statement(start, end):
+    """Return the authoritative period P&L used by both Finance and Accounting.
+
+    Revenue, COGS and operating expenses are read from posted journal lines.
+    Purchases are used as a management-basis COGS fallback only when there are
+    no posted COGS entries in the period, preserving the existing HMS policy.
+    """
+    from purchases.models import Purchase
+
+    qs = JournalLine.objects.filter(
+        entry__date__gte=start,
+        entry__date__lte=end,
+        entry__is_posted=True,
+        account__account_type__in=['revenue', 'cogs', 'expense'],
+    ).values('account__code', 'account__name', 'account__account_type').annotate(
+        debit=Sum('debit'), credit=Sum('credit')
+    ).order_by('account__code')
+
+    rows = []
+    for r in qs:
+        typ = r['account__account_type']
+        balance = ((r['credit'] or 0) - (r['debit'] or 0)) if typ == 'revenue' else ((r['debit'] or 0) - (r['credit'] or 0))
+        r['balance'] = balance
+        rows.append(r)
+
+    revenue_accounts = {
+        '4000': 'Room Revenue',
+        '4100': 'Restaurant Revenue',
+        '4200': 'Service Revenue',
+        '4900': 'Sales Discounts',
+    }
+    revenue = {code: Decimal('0.00') for code in revenue_accounts}
+    for r in rows:
+        if r['account__account_type'] == 'revenue' and r['account__code'] in revenue:
+            revenue[r['account__code']] += Decimal(str(r['balance'] or 0))
+
+    posted_cogs = sum((Decimal(str(r['balance'] or 0)) for r in rows if r['account__account_type'] == 'cogs'), Decimal('0.00'))
+    purchase_cogs = Purchase.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+    if posted_cogs:
+        cogs = posted_cogs
+        cogs_source = 'Posted inventory consumption (COGS)'
+    else:
+        cogs = purchase_cogs
+        cogs_source = 'Purchases / COGS (management basis)'
+
+    expense_rows = [r for r in rows if r['account__account_type'] == 'expense']
+    expenses = sum((Decimal(str(r['balance'] or 0)) for r in expense_rows), Decimal('0.00'))
+    total_revenue = sum(revenue.values(), Decimal('0.00'))
+    gross_profit = total_revenue - cogs
+    operating_profit = gross_profit - expenses
+
+    return {
+        'revenue': revenue,
+        'total_revenue': total_revenue,
+        'posted_cogs': posted_cogs,
+        'purchase_cogs': purchase_cogs,
+        'cogs': cogs,
+        'cogs_source': cogs_source,
+        'expense_rows': expense_rows,
+        'total_expenses': expenses,
+        'gross_profit': gross_profit,
+        'operating_profit': operating_profit,
+        'net_other_income': Decimal('0.00'),
+        'net_profit': operating_profit,
+    }

@@ -402,14 +402,32 @@ class ProfitLossReportView(FinancialReportBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        revenue = self._revenue(start, end)
-        costs = self._costs(start, end)
-        gross_result = revenue['total'] - costs['purchases']
-        net_profit = gross_result - costs['expenses']
-        margin = (net_profit / revenue['total'] * 100) if revenue['total'] else Decimal('0.00')
-        expense_rows = Expense.objects.filter(date__gte=start, date__lte=end).values('category__name').annotate(total=Sum('amount')).order_by('-total')
-        c.update(form=form, start=start, end=end, revenue=revenue, costs=costs, gross_result=gross_result,
-                 net_profit=net_profit, margin=margin, expense_rows=expense_rows)
+        from accounting.services import seed_accounts, sync_operational_journals, get_profit_loss_statement
+        seed_accounts()
+        sync_operational_journals(self.request.user)
+        pnl = get_profit_loss_statement(start, end)
+        expense_rows = Expense.objects.filter(
+            date__gte=start, date__lte=end
+        ).values('category__name').annotate(total=Sum('amount')).order_by('-total')
+        c.update(
+            form=form, start=start, end=end,
+            revenue={
+                'room': pnl['revenue'].get('4000', Decimal('0.00')),
+                'restaurant': pnl['revenue'].get('4100', Decimal('0.00')),
+                'services': pnl['revenue'].get('4200', Decimal('0.00')),
+                'discounts': pnl['revenue'].get('4900', Decimal('0.00')),
+                'total': pnl['total_revenue'],
+            },
+            costs={'purchases': pnl['purchase_cogs'], 'cogs': pnl['cogs'], 'expenses': pnl['total_expenses'],
+                   'total': pnl['cogs'] + pnl['total_expenses']},
+            cogs=pnl['cogs'], cogs_source=pnl['cogs_source'],
+            gross_profit=pnl['gross_profit'], gross_result=pnl['gross_profit'],
+            operating_profit=pnl['operating_profit'], net_profit=pnl['net_profit'],
+            margin=(pnl['net_profit'] / pnl['total_revenue'] * 100) if pnl['total_revenue'] else Decimal('0.00'),
+            gross_margin=(pnl['gross_profit'] / pnl['total_revenue'] * 100) if pnl['total_revenue'] else Decimal('0.00'),
+            operating_margin=(pnl['operating_profit'] / pnl['total_revenue'] * 100) if pnl['total_revenue'] else Decimal('0.00'),
+            expense_rows=expense_rows, accounting_expense_rows=pnl['expense_rows'],
+        )
         return c
 
 
