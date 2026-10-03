@@ -45,3 +45,7 @@ class DateRangeForm(forms.Form):
         if data.get("start_date") and data.get("end_date") and data["start_date"] > data["end_date"]:
             raise forms.ValidationError("From date cannot be after To date.")
         return data
+
+class FinancialStatementForm(DateRangeForm):
+    """Date filter for management financial statements."""
+    pass

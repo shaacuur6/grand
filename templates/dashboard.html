@@ -1,56 +1,7 @@
 {% extends "base.html" %}
-
+{% block title %}Dashboard | Grand HMS{% endblock %}
 {% block content %}
-
-<h2>Dashboard</h2>
-
-<div class="row">
-
-<div class="col-md-4">
-
-<div class="card text-center">
-
-<div class="card-body">
-
-<h3>{{ rooms }}</h3>
-<p>Total Rooms</p>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="col-md-4">
-
-<div class="card text-center">
-
-<div class="card-body">
-
-<h3>{{ bookings }}</h3>
-<p>Total Bookings</p>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="col-md-4">
-
-<div class="card text-center">
-
-<div class="card-body">
-
-<h3>{{ total_revenue }}</h3>
-<p>Restaurant Orders</p>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4"><div><h2 class="fw-bold mb-1">Management Dashboard</h2><p class="text-muted mb-0">Operational snapshot for {{ today }}.</p></div><a href="{% url 'financial_dashboard' %}" class="btn btn-primary"><i class="bi bi-wallet2"></i> Financial Dashboard</a></div>
+<div class="row g-3 mb-4"><div class="col-sm-6 col-xl-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Total Rooms</small><h3 class="mb-1">{{ rooms }}</h3><span class="text-muted">{{ occupied_rooms }} occupied · {{ available_rooms }} available</span></div></div></div><div class="col-sm-6 col-xl-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Bookings</small><h3 class="mb-1">{{ bookings }}</h3><span class="text-muted">{{ today_checkins }} check-ins · {{ today_checkouts }} check-outs</span></div></div></div><div class="col-sm-6 col-xl-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Today's Collections</small><h3 class="mb-1">{{ collections|floatformat:2 }}</h3><span class="text-muted">Recorded payments</span></div></div></div><div class="col-sm-6 col-xl-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Outstanding</small><h3 class="mb-1 text-warning">{{ outstanding|floatformat:2 }}</h3><span class="text-muted">Customer balances</span></div></div></div></div>
+<div class="row g-4"><div class="col-lg-8"><div class="card h-100"><div class="card-body"><div class="d-flex justify-content-between align-items-center mb-3"><h5 class="fw-bold mb-0">Today's Activity</h5><a href="{% url 'reports_dashboard' %}" class="btn btn-sm btn-outline-secondary">All Reports</a></div><div class="row g-3"><div class="col-md-6"><div class="p-3 bg-light rounded-3"><small class="text-muted">Restaurant Sales</small><div class="fs-4 fw-bold">{{ restaurant_sales|floatformat:2 }}</div></div></div><div class="col-md-6"><div class="p-3 bg-light rounded-3"><small class="text-muted">Collections</small><div class="fs-4 fw-bold">{{ collections|floatformat:2 }}</div></div></div></div></div></div></div><div class="col-lg-4"><div class="card h-100"><div class="card-body"><h5 class="fw-bold">Quick Actions</h5><div class="d-grid gap-2 mt-3"><a href="{% url 'booking_add' %}" class="btn btn-outline-primary"><i class="bi bi-calendar-plus"></i> New Booking</a><a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary"><i class="bi bi-receipt"></i> Invoices</a><a href="{% url 'payment_list' %}" class="btn btn-outline-secondary"><i class="bi bi-credit-card"></i> Payments</a><a href="{% url 'expense_add' %}" class="btn btn-outline-secondary"><i class="bi bi-cash-stack"></i> Record Expense</a></div></div></div></div></div>
 {% endblock %}

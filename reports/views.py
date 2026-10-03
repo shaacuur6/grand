@@ -324,3 +324,196 @@ class RestaurantSalesPDFView(ReportBase):
                 pdf.showPage(); y = 800
         pdf.save()
         return response
+
+# ---------------------------------------------------------------------------
+# Management financial statements
+# ---------------------------------------------------------------------------
+from finance.models import Expense, ExpenseCategory
+from django.db.models.functions import TruncMonth
+
+
+def _date_bounds(request):
+    form = DateRangeForm(request.GET or None)
+    if form.is_valid():
+        return form, form.cleaned_data.get('start_date'), form.cleaned_data.get('end_date')
+    return form, None, None
+
+
+def _room_revenue_between(start, end):
+    qs = RoomStay.objects.select_related('booking__guest', 'room')
+    if start:
+        qs = qs.filter(end_date__isnull=True) | qs.filter(end_date__gt=start)
+    if end:
+        qs = qs.filter(start_date__lte=end)
+    total = Decimal('0.00')
+    for stay in qs.distinct():
+        effective_start = max(stay.start_date, start) if start else stay.start_date
+        natural_end = stay.end_date or timezone.localdate()
+        effective_end = min(natural_end, end) if end else natural_end
+        nights = max((effective_end - effective_start).days, 0)
+        total += Decimal(nights) * stay.rate
+    return total
+
+
+class FinancialReportBase(ReportBase):
+    allowed_roles = MANAGEMENT_ROLES
+
+    def financial_range(self):
+        form, start, end = _date_bounds(self.request)
+        if not start and not end:
+            today = timezone.localdate()
+            start = today.replace(day=1)
+            end = today
+        return form, start, end
+
+    def _financials(self, start, end):
+        # Finance and Accounting P&L must use exactly the same authoritative
+        # accounting basis. This prevents gaps caused by independently
+        # calculating room nights, restaurant sales, discounts, expenses, or
+        # COGS from different operational tables.
+        from accounting.services import get_authoritative_profit_loss
+        return get_authoritative_profit_loss(start, end, user=self.request.user)
+
+    def _revenue(self, start, end):
+        pl = self._financials(start, end)
+        return pl['revenue']
+
+    def _costs(self, start, end):
+        pl = self._financials(start, end)
+        return {
+            'purchases': pl['cogs'],
+            'expenses': pl['expenses'],
+            'total': pl['cogs'] + pl['expenses'],
+            'cogs_source': pl['cogs_source'],
+        }
+
+
+class FinancialDashboardView(FinancialReportBase):
+    template_name = 'reports/financial/dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        form, start, end = self.financial_range()
+        pl = self._financials(start, end)
+        revenue = pl['revenue']
+        costs = {
+            'purchases': pl['cogs'],
+            'expenses': pl['expenses'],
+            'total': pl['cogs'] + pl['expenses'],
+            'cogs_source': pl['cogs_source'],
+        }
+        collections = Payment.objects.filter(created__date__gte=start, created__date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        cash_out = costs['total']
+        profit = revenue['total'] - costs['total']
+        from accounting.services import get_operational_receivables_as_of
+        receivables = get_operational_receivables_as_of(end)
+        c.update(form=form, start=start, end=end, revenue=revenue, costs=costs, collections=collections,
+                 cash_out=cash_out, net_cash=collections-cash_out, profit=profit, receivables=receivables)
+        return c
+
+
+class ProfitLossReportView(FinancialReportBase):
+    template_name = 'reports/financial/profit_loss.html'
+
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        form, start, end = self.financial_range()
+        pl = self._financials(start, end)
+        revenue = pl['revenue']
+        costs = {
+            'purchases': pl['cogs'],
+            'expenses': pl['expenses'],
+            'total': pl['cogs'] + pl['expenses'],
+            'cogs_source': pl['cogs_source'],
+        }
+        gross_result = pl['gross_profit']
+        net_profit = pl['net_profit']
+        margin = (net_profit / revenue['total'] * 100) if revenue['total'] else Decimal('0.00')
+        expense_rows = Expense.objects.filter(date__gte=start, date__lte=end).values('category__name').annotate(total=Sum('amount')).order_by('-total')
+        c.update(form=form, start=start, end=end, revenue=revenue, costs=costs, gross_result=gross_result,
+                 net_profit=net_profit, margin=margin, expense_rows=expense_rows)
+        return c
+
+
+class CashFlowReportView(FinancialReportBase):
+    template_name = 'reports/financial/cash_flow.html'
+
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        form, start, end = self.financial_range()
+        collections = Payment.objects.filter(created__date__gte=start, created__date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        purchases = Purchase.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
+        expenses = Expense.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        c.update(form=form, start=start, end=end, collections=collections, purchases=purchases, expenses=expenses,
+                 operating_outflow=purchases+expenses, net_cash=collections-purchases-expenses)
+        return c
+
+
+class ReceivablesReportView(FinancialReportBase):
+    template_name = 'reports/financial/receivables.html'
+
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        form, start, end = self.financial_range()
+        from collections import OrderedDict
+        from billing.services import get_booking_totals
+
+        invoices = (
+            Invoice.objects
+            .select_related('booking__guest', 'booking__room')
+            .prefetch_related('payment_set')
+            .filter(created__date__lte=end)
+            .order_by('booking__guest__first_name', 'booking__guest__last_name', '-created')
+        )
+
+        customer_map = OrderedDict()
+        invoice_rows = []
+        for invoice in invoices:
+            totals = get_booking_totals(invoice.booking, as_of=end, include_checkout_night=False)
+            total = max(
+                Decimal('0.00'),
+                totals['room_total'] + totals['restaurant_total'] +
+                totals['service_total'] - (invoice.discount or Decimal('0.00')),
+            )
+            paid = sum(
+                (p.amount for p in invoice.payment_set.all()
+                 if p.created and p.created.date() <= end),
+                Decimal('0.00'),
+            )
+            balance = max(Decimal('0.00'), total - paid)
+            if balance <= 0:
+                continue
+
+            guest = invoice.booking.guest
+            key = guest.pk
+            customer_map.setdefault(key, {
+                'guest': guest, 'invoice_count': 0, 'total': Decimal('0.00'),
+                'paid': Decimal('0.00'), 'balance': Decimal('0.00'), 'invoices': []
+            })
+            row = {'invoice': invoice, 'total': total, 'paid': paid, 'balance': balance}
+            customer_map[key]['invoice_count'] += 1
+            customer_map[key]['total'] += total
+            customer_map[key]['paid'] += paid
+            customer_map[key]['balance'] += balance
+            customer_map[key]['invoices'].append(row)
+            invoice_rows.append(row)
+
+        customer_rows = sorted(customer_map.values(), key=lambda r: (-r['balance'], str(r['guest'])))
+        total_billed = sum((r['total'] for r in customer_rows), Decimal('0.00'))
+        total_paid = sum((r['paid'] for r in customer_rows), Decimal('0.00'))
+        total_outstanding = sum((r['balance'] for r in customer_rows), Decimal('0.00'))
+        c.update(form=form, start=start, end=end, report=invoice_rows, customer_rows=customer_rows,
+                 total_billed=total_billed, total_paid=total_paid, total_outstanding=total_outstanding)
+        return c
+
+
+class ExpenseReportView(FinancialReportBase):
+    template_name = 'reports/financial/expense_report.html'
+
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        form, start, end = self.financial_range()
+        qs = Expense.objects.select_related('category', 'created_by').filter(date__gte=start, date__lte=end)
+        c.update(form=form, start=start, end=end, expenses=qs,
+                 total=qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00'))
+        return c

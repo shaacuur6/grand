@@ -108,13 +108,23 @@
     }
 
     .content {
-        padding: 22px;
+        padding: 28px;
+        max-width: 1600px;
+        margin: 0 auto;
     }
 
     .card {
-        border-radius: 12px;
+        border-radius: 14px;
         border: 0;
         box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+    }
+
+    .stat-card {
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
     }
 
     /* =========================
@@ -518,6 +528,55 @@
                 </ul>
             </li>
 
+
+            <!-- =========================
+                 FINANCE
+            ========================== -->
+
+            {% if request.user.is_authenticated and request.user.userprofile.role in "admin,manager" %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-wallet2"></i> Finance
+                </a>
+                <ul class="dropdown-menu">
+                    <li><h6 class="dropdown-header">Financial Management</h6></li>
+                    <li><a class="dropdown-item" href="{% url 'financial_dashboard' %}"><i class="bi bi-speedometer2"></i> Financial Dashboard</a></li>
+                    <li><a class="dropdown-item" href="{% url 'profit_loss_report' %}"><i class="bi bi-graph-up-arrow"></i> Profit & Loss</a></li>
+                    <li><a class="dropdown-item" href="{% url 'cash_flow_report' %}"><i class="bi bi-arrow-left-right"></i> Cash Flow</a></li>
+                    <li><a class="dropdown-item" href="{% url 'receivables_report' %}"><i class="bi bi-person-lines-fill"></i> Receivables</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{% url 'expense_list' %}"><i class="bi bi-receipt"></i> Expense Ledger</a></li>
+                    <li><a class="dropdown-item" href="{% url 'expense_category_list' %}"><i class="bi bi-tags"></i> Expense Categories</a></li>
+                </ul>
+            </li>
+            {% endif %}
+
+
+            {% if request.user.is_authenticated and request.user.userprofile.role in "admin,manager" %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-journal-bookmark"></i> Accounting
+                </a>
+                <ul class="dropdown-menu">
+                    <li><h6 class="dropdown-header">General Ledger</h6></li>
+                    <li><a class="dropdown-item" href="{% url 'accounting_dashboard' %}"><i class="bi bi-speedometer2"></i> Accounting Dashboard</a></li>
+                    <li><a class="dropdown-item" href="{% url 'account_list' %}"><i class="bi bi-list-columns"></i> Chart of Accounts</a></li>
+                    <li><a class="dropdown-item" href="{% url 'journal_list' %}"><i class="bi bi-journal-text"></i> Journal Entries</a></li>
+                    <li><a class="dropdown-item" href="{% url 'period_list' %}"><i class="bi bi-calendar3"></i> Accounting Periods</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">Statements</h6></li>
+                    <li><a class="dropdown-item" href="{% url 'trial_balance' %}">Trial Balance</a></li>
+                    <li><a class="dropdown-item" href="{% url 'profit_loss' %}">Profit &amp; Loss</a></li>
+                    <li><a class="dropdown-item" href="{% url 'balance_sheet' %}">Balance Sheet</a></li>
+                    <li><a class="dropdown-item" href="{% url 'cash_flow' %}">Cash Flow</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{% url 'supplier_payables' %}">Supplier Payables</a></li>
+                    <li><a class="dropdown-item" href="{% url 'opening_balance' %}">Opening Balances</a></li>
+                    <li><a class="dropdown-item" href="{% url 'inventory_valuation' %}">Inventory Valuation</a></li>
+                    <li><a class="dropdown-item" href="{% url 'inventory_movement_list' %}">Inventory / COGS</a></li>
+                </ul>
+            </li>
+            {% endif %}
 
             <!-- =========================
                  REPORTS

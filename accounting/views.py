@@ -1,0 +1,252 @@
+from decimal import Decimal
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Sum, Q
+from django.shortcuts import redirect, render
+from django.urls import reverse_lazy
+from django.views.generic import ListView, CreateView, UpdateView, DetailView, TemplateView
+from accounts.constants import MANAGEMENT_ROLES
+from accounts.mixins import RoleRequiredMixin
+from .models import Account, AccountingPeriod, JournalEntry, JournalLine, SupplierPayment, InventoryMovement
+from .forms import AccountForm, PeriodForm, JournalForm, JournalLineFormSet, SupplierPaymentForm, InventoryMovementForm, OpeningBalanceForm
+from .services import seed_accounts, sync_operational_journals, post_supplier_payment, post_inventory_movement, account, period_for, get_operational_receivables_as_of, get_authoritative_profit_loss
+
+class AccountingRoleMixin(LoginRequiredMixin, RoleRequiredMixin): allowed_roles=MANAGEMENT_ROLES
+
+def _date_range(request):
+    from django.utils import timezone
+    today=timezone.localdate(); start=request.GET.get('start') or today.replace(day=1).isoformat(); end=request.GET.get('end') or today.isoformat()
+    return start,end
+
+class AccountingDashboardView(AccountingRoleMixin, TemplateView):
+    template_name='accounting/dashboard.html'
+    def get_context_data(self,**kwargs):
+        c=super().get_context_data(**kwargs); seed_accounts(); start,end=_date_range(self.request)
+        qs=JournalLine.objects.filter(entry__date__gte=start,entry__date__lte=end,entry__is_posted=True)
+        def total(types): return qs.filter(account__account_type__in=types).aggregate(d=Sum('debit'),cr=Sum('credit'))
+        rev=total(['revenue']); exp=total(['expense','cogs']);
+        revenue=(rev['cr'] or 0)-(rev['d'] or 0)
+        posted_costs=(exp['d'] or 0)-(exp['cr'] or 0)
+        from purchases.models import Purchase
+        from billing.models import Payment
+        purchase_costs=Purchase.objects.filter(date__gte=start,date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0')
+        costs=posted_costs if posted_costs else purchase_costs
+
+        # The dashboard previously called the period's net movement in cash
+        # "Cash & bank". That is a balance/movement metric and cannot be added
+        # to ending receivables to reconcile with revenue. For the revenue
+        # bridge, use customer collections during the same period and compare
+        # them with the change in operational receivables.
+        customer_collections = Payment.objects.filter(
+            created__date__gte=start,
+            created__date__lte=end,
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        ending_receivable = get_operational_receivables_as_of(end)
+        from datetime import date, datetime
+        try:
+            start_date = date.fromisoformat(start) if isinstance(start, str) else start
+        except ValueError:
+            start_date = date.today().replace(day=1)
+        prior_date = start_date - __import__('datetime').timedelta(days=1)
+        beginning_receivable = get_operational_receivables_as_of(prior_date)
+        ar_change = ending_receivable - beginning_receivable
+        revenue_bridge = customer_collections + ar_change
+        cash_balance_movement = self._balance_many(['1000','1010','1020'],qs)
+
+        c.update(
+            start=start,end=end,revenue=revenue,costs=costs,profit=revenue-costs,
+            receivable=ending_receivable, beginning_receivable=beginning_receivable,
+            customer_collections=customer_collections, ar_change=ar_change,
+            revenue_bridge=revenue_bridge, cash=cash_balance_movement,
+            payable=self._balance('2000',qs),
+            accounts=Account.objects.filter(active=True).count(),
+            entries=JournalEntry.objects.filter(date__gte=start,date__lte=end).count()
+        )
+        return c
+    def _balance(self,codes,qs):
+        if isinstance(codes,str): codes=[codes]
+        a=qs.filter(account__code__in=codes).aggregate(d=Sum('debit'),c=Sum('credit'))
+        return (a['d'] or 0)-(a['c'] or 0)
+
+    def _balance_many(self,codes,qs):
+        """Return the net debit balance for multiple balance-sheet accounts."""
+        return self._balance(codes, qs)
+
+class SyncView(AccountingRoleMixin, TemplateView):
+    def post(self,request,*args,**kwargs):
+        result=sync_operational_journals(request.user); messages.success(request,'Accounting journals rebuilt: '+', '.join(f'{v} {k}' for k,v in result.items())+'.'); return redirect('accounting_dashboard')
+
+class AccountListView(AccountingRoleMixin,ListView): model=Account; template_name='accounting/account_list.html'; context_object_name='accounts'
+class AccountCreateView(AccountingRoleMixin,CreateView): model=Account; form_class=AccountForm; template_name='accounting/account_form.html'; success_url=reverse_lazy('account_list')
+class AccountUpdateView(AccountingRoleMixin,UpdateView): model=Account; form_class=AccountForm; template_name='accounting/account_form.html'; success_url=reverse_lazy('account_list')
+class PeriodListView(AccountingRoleMixin,ListView): model=AccountingPeriod; template_name='accounting/period_list.html'; context_object_name='periods'
+class PeriodCreateView(AccountingRoleMixin,CreateView): model=AccountingPeriod; form_class=PeriodForm; template_name='accounting/period_form.html'; success_url=reverse_lazy('period_list')
+class PeriodUpdateView(AccountingRoleMixin,UpdateView): model=AccountingPeriod; form_class=PeriodForm; template_name='accounting/period_form.html'; success_url=reverse_lazy('period_list')
+
+class JournalListView(AccountingRoleMixin,ListView):
+    model=JournalEntry; template_name='accounting/journal_list.html'; context_object_name='entries'; paginate_by=30
+    def get_queryset(self):
+        qs=super().get_queryset().prefetch_related('lines__account'); q=self.request.GET.get('q','').strip(); start,end=_date_range(self.request)
+        qs=qs.filter(date__gte=start,date__lte=end)
+        if q: qs=qs.filter(Q(description__icontains=q)|Q(reference__icontains=q)|Q(source_type__icontains=q))
+        return qs
+class JournalDetailView(AccountingRoleMixin,DetailView): model=JournalEntry; template_name='accounting/journal_detail.html'; context_object_name='entry'
+class JournalCreateView(AccountingRoleMixin,CreateView):
+    model=JournalEntry; form_class=JournalForm; template_name='accounting/journal_form.html'
+    def get_context_data(self,**kwargs):
+        c=super().get_context_data(**kwargs); c['formset']=kwargs.get('formset') or JournalLineFormSet(); return c
+    def post(self,request,*args,**kwargs):
+        self.object=None; form=self.get_form(); fs=JournalLineFormSet(request.POST)
+        if form.is_valid() and fs.is_valid():
+            total_d=sum((x.cleaned_data.get('debit') or 0) for x in fs if not x.cleaned_data.get('DELETE')); total_c=sum((x.cleaned_data.get('credit') or 0) for x in fs if not x.cleaned_data.get('DELETE'))
+            if total_d!=total_c or total_d<=0: messages.error(request,'Journal entry must have equal debit and credit totals greater than zero.'); return render(request,self.template_name,{'form':form,'formset':fs})
+            e=form.save(commit=False); e.posted_by=request.user; e.save(); fs.instance=e; fs.save(); messages.success(request,'Journal entry posted.'); return redirect('journal_detail',e.pk)
+        return render(request,self.template_name,{'form':form,'formset':fs})
+
+class OpeningBalanceView(AccountingRoleMixin, TemplateView):
+    template_name='accounting/opening_balance.html'
+    def get_context_data(self, **kwargs):
+        c=super().get_context_data(**kwargs); c['form']=kwargs.get('form') or OpeningBalanceForm(); return c
+    def post(self, request, *args, **kwargs):
+        form=OpeningBalanceForm(request.POST)
+        if form.is_valid():
+            data=form.cleaned_data; a=data['account']; amt=data['amount']; side=data['side'];
+            offset='3000' if a.account_type in ['asset','expense','cogs'] else '3100'
+            lines=[(a.code,amt if side=='debit' else 0,amt if side=='credit' else 0,a.name),(offset,amt if side=='credit' else 0,amt if side=='debit' else 0,'Opening balance offset')]
+            from .models import JournalEntry, JournalLine
+            e=JournalEntry.objects.create(date=data['date'],period=period_for(data['date']),description=data['description'],reference='OPENING',source_type='opening',source_id=None,posted_by=request.user)
+            for code,debit,credit,desc in lines:
+                JournalLine.objects.create(entry=e,account=account(code),debit=debit,credit=credit,description=desc)
+            messages.success(request,'Opening balance posted successfully.'); return redirect('journal_list')
+        return render(request,self.template_name,{'form':form})
+
+class SupplierPayablesView(AccountingRoleMixin, TemplateView):
+    template_name='accounting/supplier_payables.html'
+    def get_context_data(self,**kwargs):
+        from purchases.models import Purchase
+        from django.db.models import Sum
+        c=super().get_context_data(**kwargs); rows=[]
+        from .models import SupplierPayment
+        for supplier in __import__('purchases.models',fromlist=['Supplier']).Supplier.objects.all().order_by('name'):
+            purchased=Purchase.objects.filter(supplier=supplier).aggregate(v=Sum('total_amount'))['v'] or 0
+            paid=SupplierPayment.objects.filter(supplier=supplier).aggregate(v=Sum('amount'))['v'] or 0
+            if purchased or paid: rows.append({'supplier':supplier,'purchased':purchased,'paid':paid,'balance':purchased-paid})
+        c['rows']=rows; c['total_purchased']=sum(r['purchased'] for r in rows); c['total_paid']=sum(r['paid'] for r in rows); c['total_balance']=sum(r['balance'] for r in rows); return c
+
+class InventoryValuationView(AccountingRoleMixin, TemplateView):
+    template_name='accounting/inventory_valuation.html'
+    def get_context_data(self,**kwargs):
+        from purchases.models import InventoryItem, PurchaseItem
+        c=super().get_context_data(**kwargs); rows=[]
+        for item in InventoryItem.objects.all().order_by('name'):
+            agg=PurchaseItem.objects.filter(item=item).aggregate(q=Sum('quantity'),cost=Sum('quantity'))
+            total_qty=agg['q'] or 0
+            total_cost=PurchaseItem.objects.filter(item=item).aggregate(v=Sum('quantity'))['v'] or 0
+            # Weighted average cost from purchase lines.
+            lines=PurchaseItem.objects.filter(item=item)
+            q=Decimal('0'); cost=Decimal('0')
+            for line in lines: q += line.quantity; cost += line.quantity*line.unit_price
+            avg=(cost/q) if q else Decimal('0'); value=item.current_stock*avg
+            rows.append({'item':item,'stock':item.current_stock,'avg_cost':avg,'value':value})
+        c['rows']=rows; c['total_value']=sum(r['value'] for r in rows); return c
+
+class SupplierPaymentListView(AccountingRoleMixin,ListView): model=SupplierPayment; template_name='accounting/supplier_payment_list.html'; context_object_name='payments'
+class SupplierPaymentCreateView(AccountingRoleMixin,CreateView):
+    model=SupplierPayment; form_class=SupplierPaymentForm; template_name='accounting/supplier_payment_form.html'; success_url=reverse_lazy('supplier_payment_list')
+    def form_valid(self,form):
+        obj=form.save(commit=False); obj.created_by=self.request.user; obj.save(); post_supplier_payment(obj,self.request.user); messages.success(self.request,'Supplier payment recorded and posted.'); return redirect(self.success_url)
+
+class InventoryMovementListView(AccountingRoleMixin,ListView): model=InventoryMovement; template_name='accounting/inventory_movement_list.html'; context_object_name='movements'
+class InventoryMovementCreateView(AccountingRoleMixin,CreateView):
+    model=InventoryMovement; form_class=InventoryMovementForm; template_name='accounting/inventory_movement_form.html'; success_url=reverse_lazy('inventory_movement_list')
+    def form_valid(self,form):
+        obj=form.save(commit=False); obj.created_by=self.request.user
+        if obj.movement_type=='issue' and obj.quantity > obj.item.current_stock:
+            form.add_error('quantity', f'Cannot issue {obj.quantity}; only {obj.item.current_stock} is in stock.')
+            return self.form_invalid(form)
+        obj.save()
+        if obj.movement_type=='receipt': obj.item.current_stock += obj.quantity
+        elif obj.movement_type=='issue': obj.item.current_stock -= obj.quantity
+        else: obj.item.current_stock = obj.quantity
+        obj.item.save(update_fields=['current_stock'])
+        post_inventory_movement(obj,self.request.user); messages.success(self.request,'Inventory movement posted to the ledger.'); return redirect(self.success_url)
+
+class StatementBase(AccountingRoleMixin,TemplateView):
+    def get_context_data(self, **kwargs):
+        # Keep the double-entry reports in sync with the existing HMS operational
+        # modules. Finance/reports read invoices and expenses directly, while the
+        # accounting statements read JournalLine. Rebuilding the operational
+        # journals here makes the accounting statements reflect the same activity.
+        seed_accounts()
+        sync_operational_journals(self.request.user)
+        return super().get_context_data(**kwargs)
+
+    def rows(self,types,start,end):
+        qs=JournalLine.objects.filter(entry__date__gte=start,entry__date__lte=end,entry__is_posted=True,account__account_type__in=types).values('account__code','account__name','account__account_type').annotate(debit=Sum('debit'),credit=Sum('credit')).order_by('account__code')
+        rows=[]
+        for r in qs:
+            if r['account__account_type'] in ['revenue','liability','equity']: balance=(r['credit'] or 0)-(r['debit'] or 0)
+            else: balance=(r['debit'] or 0)-(r['credit'] or 0)
+            r['balance']=balance; rows.append(r)
+        return rows
+
+class TrialBalanceView(StatementBase):
+    template_name='accounting/trial_balance.html'
+    def get_context_data(self,**kwargs):
+        c=super().get_context_data(**kwargs); start,end=_date_range(self.request); rows=self.rows(['asset','liability','equity','revenue','cogs','expense'],start,end); c.update(start=start,end=end,rows=rows,total_debit=sum(r['debit'] or 0 for r in rows),total_credit=sum(r['credit'] or 0 for r in rows)); return c
+class ProfitLossView(StatementBase):
+    template_name='accounting/profit_loss.html'
+
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        start, end = _date_range(self.request)
+        pl = get_authoritative_profit_loss(start, end)
+        c.update(
+            start=start, end=end,
+            rows=self.rows(['revenue', 'cogs', 'expense'], start, end),
+            revenue=pl['revenue']['total'],
+            cogs=pl['cogs'],
+            posted_cogs=pl['posted_cogs'],
+            purchase_cogs=pl['purchase_cogs'],
+            cogs_source=pl['cogs_source'],
+            cogs_is_management_basis=pl['cogs_is_management_basis'],
+            gross_profit=pl['gross_profit'],
+            expenses=pl['expenses'],
+            net_profit=pl['net_profit'],
+        )
+        return c
+class BalanceSheetView(StatementBase):
+    template_name='accounting/balance_sheet.html'
+    def get_context_data(self,**kwargs):
+        from datetime import date
+        c=super().get_context_data(**kwargs)
+        start,end=_date_range(self.request)
+        rows=self.rows(['asset','liability','equity'],date.min,end)
+        assets=[r for r in rows if r['account__account_type']=='asset']
+        # Accounts Receivable is reconciled to the same operational, as-of-date
+        # customer balance used by Finance. The journal ledger can contain
+        # historical postings or legacy entries, so using its raw lifetime
+        # balance here can disagree with customer receivables.
+        operational_ar = get_operational_receivables_as_of(end)
+        for row in assets:
+            if row['account__code'] == '1100':
+                row['debit'] = operational_ar
+                row['credit'] = Decimal('0.00')
+                row['balance'] = operational_ar
+        liab=[r for r in rows if r['account__account_type']=='liability']
+        eq=[r for r in rows if r['account__account_type']=='equity']
+        # Current-period profit is part of equity on the balance sheet.
+        pl_rows=self.rows(['revenue','cogs','expense'],start,end)
+        revenue=sum(r['balance'] for r in pl_rows if r['account__account_type']=='revenue')
+        cogs=sum(r['balance'] for r in pl_rows if r['account__account_type']=='cogs')
+        expenses=sum(r['balance'] for r in pl_rows if r['account__account_type']=='expense')
+        retained=revenue-cogs-expenses
+        total_assets=sum(r['balance'] for r in assets)
+        total_liabilities=sum(r['balance'] for r in liab)
+        total_equity=sum(r['balance'] for r in eq)+retained
+        c.update(start=start,end=end,assets=assets,liabilities=liab,equity=eq,net_profit=retained,total_assets=total_assets,total_liabilities=total_liabilities,total_equity=total_equity)
+        return c
+class CashFlowView(StatementBase):
+    template_name='accounting/cash_flow.html'
+    def get_context_data(self,**kwargs):
+        c=super().get_context_data(**kwargs); start,end=_date_range(self.request); qs=JournalLine.objects.filter(entry__date__gte=start,entry__date__lte=end,entry__is_posted=True,account__code__in=['1000','1010','1020']); rows=qs.values('account__code','account__name').annotate(debit=Sum('debit'),credit=Sum('credit')); c.update(start=start,end=end,rows=rows,net_cash=sum((r['debit'] or 0)-(r['credit'] or 0) for r in rows)); return c

@@ -58,6 +58,10 @@ Reporting is centralized in the `reports` app:
 - Purchases: purchase report, supplier purchase report and low stock
 - Restaurant Excel/PDF exports
 
+## Financial management
+
+A dedicated `finance` module now provides: expense categories, an expense ledger, Profit & Loss, Cash Flow, Accounts Receivable, and a management financial dashboard. The P&L uses a clearly labelled management basis because inventory consumption/COGS is not yet tracked separately.
+
 ## Database / migrations
 
 The changes in this build do not alter database models, so no new migration is required for the four apps. Existing data can therefore be retained.

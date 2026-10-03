@@ -94,9 +94,13 @@ class InvoiceDetailView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         invoice = get_object_or_404(Invoice.objects.select_related("booking", "booking__guest", "booking__room"), pk=self.kwargs["pk"])
         booking = invoice.booking
-        if booking.status != "checked_out":
-            sync_invoice(booking, rebuild_payment_allocations=True)
-            invoice.refresh_from_db()
+        invoice = sync_invoice(
+            booking,
+            as_of=booking.check_out or timezone.localdate(),
+            include_checkout_night=booking.status == "checked_out",
+            rebuild_payment_allocations=True,
+        )
+        invoice.refresh_from_db()
         summary = get_financial_summary(booking, as_of=booking.check_out or timezone.localdate(),
                                         include_checkout_night=booking.status == "checked_out")
         context.update({
@@ -151,10 +155,13 @@ class PaymentView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         booking = self.get_booking()
-        invoice = Invoice.objects.filter(booking=booking).first() or sync_invoice(booking)
-        if booking.status != "checked_out":
-            sync_invoice(booking)
-            invoice.refresh_from_db()
+        invoice = sync_invoice(
+            booking,
+            as_of=booking.check_out or timezone.localdate(),
+            include_checkout_night=booking.status == "checked_out",
+            rebuild_payment_allocations=True,
+        )
+        invoice.refresh_from_db()
         context.update({
             "booking": booking, "invoice": invoice,
             "summary": get_financial_summary(booking, as_of=booking.check_out or timezone.localdate(),
@@ -166,9 +173,21 @@ class PaymentView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        booking = self.get_booking()
-        sync_invoice(booking, include_checkout_night=booking.status == "checked_out")
+        # Lock the booking and invoice together so a payment can never be
+        # attached to a stale/pre-checkout total. The invoice is synchronized
+        # from the booking's current financial state before validating the
+        # payment amount.
+        booking = Booking.objects.select_for_update().select_related("guest", "room").get(
+            pk=self.kwargs["pk"]
+        )
+        sync_invoice(
+            booking,
+            as_of=booking.check_out or timezone.localdate(),
+            include_checkout_night=booking.status == "checked_out",
+            rebuild_payment_allocations=True,
+        )
         invoice = Invoice.objects.select_for_update().get(booking=booking)
+        invoice.refresh_from_db()
         form = PaymentForm(request.POST)
         if not form.is_valid():
             context = self.get_context_data()
@@ -181,10 +200,17 @@ class PaymentView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
             context = self.get_context_data()
             context["form"] = form
             return self.render_to_response(context)
-        payment = Payment.objects.create(invoice=invoice, amount=amount,
-                                         payment_method=form.cleaned_data["payment_method"],
-                                         received_by=request.user)
-        allocate_payment(invoice, payment)
+        payment = Payment.objects.create(
+            invoice=invoice,
+            amount=amount,
+            payment_method=form.cleaned_data["payment_method"],
+            received_by=request.user,
+        )
+        # Rebuild all component allocations in payment order. This keeps the
+        # payment record, invoice balance and room/restaurant/service
+        # allocations consistent after every payment.
+        rebuild_allocations(invoice)
+        invoice.refresh_from_db()
         messages.success(request, f"Payment of ${amount:,.2f} recorded successfully.")
         return redirect("payment", pk=booking.pk)
 

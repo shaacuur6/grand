@@ -1,0 +1,9 @@
+{% extends 'accounting/statement_base.html' %}{% block statement_title %}Profit &amp; Loss{% endblock %}{% block statement_body %}<div class="row g-3 mb-3"><div class="col-md-3"><div class="card"><div class="card-body"><small>Revenue</small><h4>{{revenue|floatformat:2}}</h4></div></div></div><div class="col-md-3"><div class="card"><div class="card-body"><small>COGS</small><h4>{{cogs|floatformat:2}}</h4><div class="small text-muted">{{ cogs_source }}</div></div></div></div><div class="col-md-3"><div class="card"><div class="card-body"><small>Gross profit</small><h4>{{gross_profit|floatformat:2}}</h4></div></div></div><div class="col-md-3"><div class="card"><div class="card-body"><small>Net profit / loss</small><h4>{{net_profit|floatformat:2}}</h4></div></div></div></div><div class="card"><table class="table stmt-table"><thead><tr><th>Code</th><th>Account</th><th class="money">Balance</th></tr></thead><tbody>{% for r in rows %}<tr><td>{{r.account__code}}</td><td>{{r.account__name}}</td><td class="money">{{r.balance|floatformat:2}}</td></tr>{% endfor %}</tbody></table></div>
+<div class="alert alert-info mt-3 mb-0">
+  <strong>COGS basis:</strong> {{ cogs_source }}.
+  {% if cogs_is_management_basis %}
+    No posted inventory-consumption COGS was found for this period, so purchases are shown here on the same management basis used by Finance. This does not reduce the Balance Sheet inventory.
+  {% else %}
+    COGS is based on posted inventory issue/consumption journal entries.
+  {% endif %}
+</div>{% endblock %}

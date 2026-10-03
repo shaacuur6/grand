@@ -13,7 +13,7 @@ from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView, FormView
 
 from accounts.mixins import RoleRequiredMixin
-from billing.models import Invoice
+from billing.models import Invoice, Payment
 from billing.services import get_financial_summary, sync_invoice
 from restaurant.models import Order
 from .forms import (
@@ -63,9 +63,13 @@ class BookingDetailView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         booking = self.booking
         invoice = Invoice.objects.filter(booking=booking).first()
-        if booking.status in {"reserved", "checked_in", "checked_out"}:
-            if not invoice and booking.status in {"checked_in", "checked_out"}:
-                invoice = sync_invoice(booking, as_of=booking.check_out or timezone.localdate())
+        if booking.status in {"checked_in", "checked_out"}:
+            invoice = sync_invoice(
+                booking,
+                as_of=booking.check_out or timezone.localdate(),
+                include_checkout_night=booking.status == "checked_out",
+                rebuild_payment_allocations=True,
+            )
         summary = get_financial_summary(
             booking,
             as_of=booking.check_out or timezone.localdate(),
@@ -291,23 +295,12 @@ class BookingCheckOutView(LoginRequiredMixin, RoleRequiredMixin, FormView):
         checkout_date = now.date()
         late = is_late_checkout(now)
 
-        summary = get_financial_summary(booking, as_of=checkout_date, include_checkout_night=True)
         discount = form.cleaned_data.get("discount") or Decimal("0.00")
-        if discount > summary["room_total"] + summary["restaurant_total"] + summary["service_total"]:
-            form.add_error("discount", "Discount cannot exceed the subtotal.")
-            return self.form_invalid(form)
 
-        invoice = Invoice.objects.filter(booking=booking).first() or sync_invoice(booking)
-        invoice.discount = discount
-        invoice.room_total = summary["room_total"]
-        invoice.restaurant_total = summary["restaurant_total"]
-        invoice.service_total = summary["service_total"]
-        invoice.total = max(
-            Decimal("0.00"),
-            invoice.room_total + invoice.restaurant_total + invoice.service_total - discount
-        )
-        invoice.save(update_fields=["room_total", "restaurant_total", "service_total", "discount", "total"])
-
+        # Close the active RoomStay BEFORE calculating the final invoice.
+        # The previous flow calculated/saved the invoice while the stay was
+        # still open, then changed the stay end date. That could leave the
+        # invoice/receivable out of sync with the final checked-out booking.
         current = booking.room_stays.select_for_update().filter(end_date__isnull=True).last()
         if current:
             current.end_date = checkout_date
@@ -316,7 +309,11 @@ class BookingCheckOutView(LoginRequiredMixin, RoleRequiredMixin, FormView):
         booking.status = "checked_out"
         booking.actual_check_out_at = now
         booking.late_checkout_approved = form.cleaned_data.get("late_checkout_approved", False)
-        booking.late_checkout_charge = current.rate if (late and booking.late_checkout_approved and current) else Decimal("0.00")
+        booking.late_checkout_charge = (
+            current.rate
+            if (late and booking.late_checkout_approved and current)
+            else Decimal("0.00")
+        )
         booking.check_out = checkout_date
         booking.updated_by = self.request.user
         booking.save(update_fields=[
@@ -324,21 +321,46 @@ class BookingCheckOutView(LoginRequiredMixin, RoleRequiredMixin, FormView):
             "late_checkout_charge", "check_out", "updated_by", "updated"
         ])
 
+        # Now rebuild the invoice from the FINAL closed stay. sync_invoice()
+        # preserves existing payments and the existing invoice discount.
+        invoice = sync_invoice(
+            booking,
+            as_of=checkout_date,
+            include_checkout_night=True,
+            rebuild_payment_allocations=True,
+        )
+
+        # Apply the checkout discount after the final totals are known.
+        subtotal = invoice.room_total + invoice.restaurant_total + invoice.service_total
+        if discount > subtotal:
+            form.add_error("discount", "Discount cannot exceed the subtotal.")
+            return self.form_invalid(form)
+        invoice.discount = discount
+        invoice.total = max(Decimal("0.00"), subtotal - discount)
+        invoice.save(update_fields=["discount", "total"])
+
+        # The discount changes the final invoice after the first sync. Rebuild
+        # allocations once more so any existing payments remain correctly
+        # allocated against the FINAL checkout invoice. Accounting is also
+        # updated by the Invoice post_save signal.
+        from billing.utils import rebuild_allocations
+        rebuild_allocations(invoice)
+        invoice.refresh_from_db()
+
         room = Room.objects.select_for_update().get(pk=booking.room_id)
         room.is_available = True
         room.status = "available"
         room.save(update_fields=["is_available", "status"])
 
-        # Add the late checkout charge to the final invoice only when approved.
-        if late and booking.late_checkout_approved and current:
-            invoice.room_total += current.rate
-            invoice.total = max(
-                Decimal("0.00"),
-                invoice.room_total + invoice.restaurant_total + invoice.service_total - invoice.discount
-            )
-            invoice.save(update_fields=["room_total", "total"])
-
-        messages.success(request, f"Booking #{booking.pk} checked out. Final balance: ${invoice.total - sum((p.amount for p in invoice.payment_set.all()), Decimal('0.00')):,.2f}")
+        paid_total = sum(
+            (p.amount for p in invoice.payment_set.all()),
+            Decimal("0.00"),
+        )
+        final_balance = max(Decimal("0.00"), invoice.total - paid_total)
+        messages.success(
+            self.request,
+            f"Booking #{booking.pk} checked out. Final balance: ${final_balance:,.2f}"
+        )
         return redirect("booking_detail", pk=booking.pk)
 
 
@@ -425,6 +447,23 @@ class BookingDeleteView(LoginRequiredMixin, RoleRequiredMixin, DeleteView):
 class DashboardView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
     allowed_roles = MANAGEMENT_ROLES
     template_name = "dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.localdate()
+        context.update({
+            "today": today,
+            "rooms": Room.objects.count(),
+            "occupied_rooms": Room.objects.filter(status="occupied").count(),
+            "available_rooms": Room.objects.filter(status="available").count(),
+            "bookings": Booking.objects.count(),
+            "today_checkins": Booking.objects.filter(check_in=today).count(),
+            "today_checkouts": Booking.objects.filter(check_out=today).count(),
+            "restaurant_sales": Order.objects.filter(created_at__date=today).aggregate(total=Sum("total_amount"))["total"] or Decimal("0.00"),
+            "collections": Payment.objects.filter(created__date=today).aggregate(total=Sum("amount"))["total"] or Decimal("0.00"),
+            "outstanding": sum((invoice.balance for invoice in Invoice.objects.select_related("booking__guest")), Decimal("0.00")),
+        })
+        return context
 
 
 class ServiceListView(LoginRequiredMixin, RoleRequiredMixin, ListView):

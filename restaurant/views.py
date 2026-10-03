@@ -127,25 +127,39 @@ class OrderDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
 class OrderUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
     allowed_roles = MANAGEMENT_ROLES
     model = Order
+    # This view uses a custom POST handler and builds its own fields in the template.
+    # An empty ModelForm keeps UpdateView GET rendering valid under Django 6.1.
+    fields = []
     template_name = "restaurant/order_update.html"
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         old_booking = self.object.booking
-        table = request.POST.get("table_number") or None
-        booking_id = request.POST.get("booking") or None
-        employee_id = request.POST.get("employee") or None
-        self.object.table_number = int(table) if table else None
-        self.object.booking_id = int(booking_id) if booking_id else None
-        self.object.employee_id = int(employee_id) if employee_id else None
+        def clean_int(value):
+            value = (value or "").strip()
+            if not value or value.lower() in {"none", "null"}:
+                return None
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+
+        self.object.table_number = clean_int(request.POST.get("table_number"))
+        self.object.booking_id = clean_int(request.POST.get("booking"))
+        self.object.employee_id = clean_int(request.POST.get("employee"))
         self.object.save(update_fields=["table_number", "booking", "employee"])
         for item in list(self.object.items.all()):
             if request.POST.get(f"delete_{item.pk}"):
                 item.delete(); continue
             food_id = request.POST.get(f"food_{item.pk}")
             qty = request.POST.get(f"quantity_{item.pk}")
-            if food_id and qty:
-                item.food_id = int(food_id); item.quantity = max(int(qty), 1); item.description = (request.POST.get(f"note_{item.pk}") or "")[:200]; item.save()
+            food_id = clean_int(food_id)
+            quantity = clean_int(qty)
+            if food_id and quantity:
+                item.food_id = food_id
+                item.quantity = max(quantity, 1)
+                item.description = (request.POST.get(f"note_{item.pk}") or "")[:200]
+                item.save()
         self.object.update_total()
         new_booking = self.object.booking
         if old_booking: sync_invoice(old_booking)

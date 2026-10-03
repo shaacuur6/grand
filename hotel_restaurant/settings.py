@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     "ckeditor_uploader",
     "reports",
     "purchases",
-    
+    "finance",
+    "accounting",
 
     
 

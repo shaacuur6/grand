@@ -46,3 +46,68 @@ If your environment is a virtual environment, activate it before running these c
 ## Compatibility note
 
 The uploaded project currently contains a `requirements.txt` declaring Django 6.1.1 while the project source comments describe Django 5.2. Before production deployment, keep one Django version consistently installed in the virtual environment and test the complete project after `migrate` and `check`.
+
+## Financial management upgrade
+
+This build adds a `finance` app with:
+
+- Expense categories and expense ledger
+- Profit & Loss statement
+- Cash Flow summary
+- Accounts Receivable report
+- Financial dashboard with revenue mix, costs, profit, collections and net cash movement
+
+The P&L is explicitly management-basis: purchases are shown as costs because the existing inventory module tracks stock quantities but does not yet track inventory consumption/COGS separately. The Cash Flow report uses recorded invoice payments minus purchases and expenses; it is not a bank reconciliation.
+
+Run:
+
+```bash
+python manage.py migrate
+python manage.py check
+python manage.py test
+```
+
+## Accounting Module Upgrade
+
+This version adds a dedicated `accounting` app for double-entry bookkeeping.
+
+### Included
+- Chart of Accounts with standard hotel accounts
+- Monthly/open and closed accounting periods
+- Double-entry journal entries with balanced debit/credit validation
+- Opening balance posting against equity
+- Automated rebuild/posting of existing invoices, customer payments, expenses, and purchases
+- Supplier payable ledger and supplier payment posting
+- Inventory movements with receipt, issue/COGS, and adjustment entries
+- Weighted-average inventory valuation report
+- Trial Balance
+- Profit & Loss
+- Balance Sheet
+- Cash Flow
+- Accounting dashboard and navigation
+
+### Important operating rule
+Existing purchases already update `InventoryItem.current_stock`. The accounting inventory movement screen is intended for explicit stock receipts/issues/adjustments that need their own accounting entry. Do not record the same physical purchase twice through both workflows.
+
+### Initial setup
+After deployment:
+
+```bash
+python manage.py migrate
+python manage.py check
+```
+
+Then open **Accounting → Accounting Dashboard** and use **Rebuild Operational Journals** to create ledger entries for existing invoices, payments, expenses, and purchases.
+
+For inventory consumption, use **Accounting → Inventory / COGS** and post an **Issue / COGS** movement with the appropriate cost.
+
+## Accounting revenue recognition fix (v6)
+
+Accounting revenue is now posted on the date the revenue is earned rather than the invoice creation date:
+- Room revenue: one journal entry per RoomStay night, using start-date inclusive / end-date exclusive semantics (same basis as the Finance P&L).
+- Restaurant revenue: Order.created_at date.
+- Service revenue: Service.date.
+- Invoice-level discounts: invoice checkout/creation date.
+
+This prevents a multi-day/two-room booking whose invoice is created on a different date from disappearing from a selected accounting period.
+If a RoomStay ends on 28-Sep, the 27-Sep night is recognized on 27-Sep. If it ends on 27-Sep, 27-Sep is the checkout boundary and the last billable night is 26-Sep under the existing RoomStay convention.

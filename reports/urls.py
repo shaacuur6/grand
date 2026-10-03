@@ -9,6 +9,7 @@ from .views import (
     DailyRestaurantSalesReportView, MonthlySalesReportView, WaiterSalesReportView, OrdersPerWaiterReportView, CollectionsPerWaiterReportView,
     UnpaidOrdersPerWaiterReportView, TopSellingFoodsReportView, CategorySalesReportView, OrderHistoryReportView, TableSalesReportView,
     PurchaseReportView, SupplierPurchaseReportView, LowStockReportView, RestaurantSalesExcelView, RestaurantSalesPDFView,
+    FinancialDashboardView, ProfitLossReportView, CashFlowReportView, ReceivablesReportView, ExpenseReportView,
 )
 
 urlpatterns = [
@@ -53,4 +54,10 @@ urlpatterns = [
     path("purchases/", PurchaseReportView.as_view(), name="purchase_report"),
     path("purchases/by-supplier/", SupplierPurchaseReportView.as_view(), name="supplier_purchase_report"),
     path("purchases/low-stock/", LowStockReportView.as_view(), name="low_stock_report"),
+    # Financial management
+    path("financial/", FinancialDashboardView.as_view(), name="financial_dashboard"),
+    path("financial/profit-loss/", ProfitLossReportView.as_view(), name="profit_loss_report"),
+    path("financial/cash-flow/", CashFlowReportView.as_view(), name="cash_flow_report"),
+    path("financial/receivables/", ReceivablesReportView.as_view(), name="receivables_report"),
+    path("financial/expenses/", ExpenseReportView.as_view(), name="expense_report"),
 ]

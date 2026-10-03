@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Receivables | Grand HMS{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Accounts Receivable</h2>
+        <p class="text-muted mb-0">Customer balances as of {{ end }}.</p>
+    </div>
+    <div class="text-end">
+        <small class="text-muted">Total outstanding</small>
+        <div class="fs-4 fw-bold text-danger">{{ total_outstanding|floatformat:2 }}</div>
+    </div>
+</div>
+
+{% include "reports/financial/_filter.html" %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-0">Customer Balances</h5>
+            <small class="text-muted">Only balances outstanding at the selected end date are shown.</small>
+        </div>
+        <span class="badge text-bg-primary">{{ customer_rows|length }} customer{{ customer_rows|length|pluralize }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Customer</th>
+                    <th class="text-center">Invoices</th>
+                    <th class="text-end">Billed</th>
+                    <th class="text-end">Paid</th>
+                    <th class="text-end">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in customer_rows %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ row.guest }}</div>
+                        {% if row.guest.phone %}<small class="text-muted">{{ row.guest.phone }}</small>{% endif %}
+                    </td>
+                    <td class="text-center">{{ row.invoice_count }}</td>
+                    <td class="text-end">{{ row.total|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.paid|floatformat:2 }}</td>
+                    <td class="text-end text-danger fw-bold">{{ row.balance|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted">No outstanding customer balances as of {{ end }}.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if customer_rows %}
+            <tfoot class="table-light fw-bold">
+                <tr>
+                    <td>Total</td>
+                    <td class="text-center">{{ customer_rows|length }}</td>
+                    <td class="text-end">{{ total_billed|floatformat:2 }}</td>
+                    <td class="text-end">{{ total_paid|floatformat:2 }}</td>
+                    <td class="text-end text-danger">{{ total_outstanding|floatformat:2 }}</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white">
+        <h6 class="mb-0">Invoice Detail</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Invoice</th><th>Customer</th><th>Room</th><th>Date</th><th class="text-end">Total</th><th class="text-end">Paid</th><th class="text-end">Balance</th></tr>
+            </thead>
+            <tbody>
+            {% for row in report %}
+                <tr>
+                    <td>#{{ row.invoice.id }}</td>
+                    <td>{{ row.invoice.booking.guest }}</td>
+                    <td>{{ row.invoice.booking.room.number }}</td>
+                    <td>{{ row.invoice.created|date:'Y-m-d' }}</td>
+                    <td class="text-end">{{ row.total|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.paid|floatformat:2 }}</td>
+                    <td class="text-end text-danger fw-semibold">{{ row.balance|floatformat:2 }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center py-4 text-muted">No outstanding invoices.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

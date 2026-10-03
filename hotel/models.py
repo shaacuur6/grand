@@ -126,8 +126,12 @@ class Booking(models.Model):
             return Decimal(self.days) * (self.room_price or Decimal("0.00"))
         total = Decimal("0.00")
         for stay in stays:
-            stop = stay.end_date or end_date
-            nights = max((stop - stay.start_date).days, 0)
+            if stay.end_date:
+                nights = max((stay.end_date - stay.start_date).days, 0)
+            elif stay.start_date <= end_date:
+                nights = max((end_date - stay.start_date).days, 1)
+            else:
+                nights = 0
             total += Decimal(nights) * stay.rate
         # A same-day stay still carries one room night at checkout.
         if total == 0 and self.status == "checked_out":
@@ -187,8 +191,15 @@ class RoomStay(models.Model):
 
     @property
     def nights(self):
-        end = self.end_date or timezone.now().date()
-        return max((end - self.start_date).days, 0)
+        # Open stays are billable for at least one night on the current
+        # hotel date. This keeps today's booking balance from appearing as
+        # zero until tomorrow. Closed stays remain start-inclusive/end-exclusive.
+        if self.end_date:
+            return max((self.end_date - self.start_date).days, 0)
+        today = timezone.localdate()
+        if self.start_date > today:
+            return 0
+        return max((today - self.start_date).days, 1)
 
     @property
     def total(self):
