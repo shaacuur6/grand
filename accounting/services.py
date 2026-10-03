@@ -15,7 +15,23 @@ DEFAULT_ACCOUNTS=[
 def seed_accounts():
     for code,name,typ in DEFAULT_ACCOUNTS: Account.objects.get_or_create(code=code,defaults={'name':name,'account_type':typ})
 
-def account(code): return Account.objects.get(code=code)
+def account(code):
+    """Return a standard account, creating it if an existing database is missing it.
+
+    Older/existing installations may have the accounting schema without having
+    received the seed rows from the initial migration. Transaction posting must
+    therefore be safe to run against such databases.
+    """
+    for item_code, name, typ in DEFAULT_ACCOUNTS:
+        if item_code == str(code):
+            obj, _ = Account.objects.get_or_create(
+                code=item_code,
+                defaults={'name': name, 'account_type': typ},
+            )
+            return obj
+    # Keep unexpected account codes explicit instead of silently creating a
+    # malformed account.
+    raise ValueError(f'Unknown standard accounting account code: {code}')
 
 def period_for(date):
     p=AccountingPeriod.objects.filter(start_date__lte=date,end_date__gte=date,status=AccountingPeriod.OPEN).first()
