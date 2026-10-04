@@ -1,7 +1,9 @@
-{% extends "base.html" %}{% block content %}
+{% extends "base.html" %}
+{% load money_tags %}{% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-4"><div><h2 class="fw-bold">Invoices</h2><p class="text-muted mb-0">Hotel, restaurant and service charges in one ledger.</p></div><a class="btn btn-outline-primary" href="{% url 'payment_summary' %}">Payment Summary</a></div>
 <div class="card shadow-sm border-0 mb-4"><div class="card-body"><form method="get" class="row g-2">
 {% for field in filter.form %}<div class="col-md-2">{{ field.label_tag }}{{ field }}</div>{% endfor %}<div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100">Filter</button></div></form></div></div>
 <div class="card shadow-sm border-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Invoice</th><th>Guest</th><th>Room</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th></th></tr></thead><tbody>
-{% for i in invoices %}<tr><td>#{{ i.id }}</td><td>{{ i.booking.guest }}</td><td>{{ i.booking.room.number }}</td><td>${{ i.total|floatformat:2 }}</td><td>${{ i.paid_total|floatformat:2 }}</td><td>${{ i.balance|floatformat:2 }}</td><td><span class="badge {% if i.payment_status == 'paid' %}text-bg-success{% elif i.payment_status == 'partial' %}text-bg-warning{% else %}text-bg-danger{% endif %}">{{ i.payment_status|title }}</span></td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'invoice_detail' i.id %}">View</a></td></tr>{% empty %}<tr><td colspan="8" class="text-center py-4">No invoices found.</td></tr>{% endfor %}
+{% for i in invoices %}<tr><td>#{{ i.id }}</td><td>{{ i.booking.guest }}</td><td>{{ i.booking.room.number }}</td><td>{{ i.total|money }}</td><td>{{ i.paid_total|money }}</td><td>{{ i.balance|money }}</td><td><span class="badge {% if i.payment_status == 'paid' %}text-bg-success{% elif i.payment_status == 'partial' %}text-bg-warning{% else %}text-bg-danger{% endif %}">{{ i.payment_status|title }}</span></td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'invoice_detail' i.id %}">View</a></td></tr>{% empty %}<tr><td colspan="8" class="text-center py-4">No invoices found.</td></tr>{% endfor %}
 </tbody></table></div></div>{% endblock %}

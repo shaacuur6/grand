@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% load money_tags %}
+
 {% block title %}Receivables | Grand HMS{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -8,7 +10,7 @@
     </div>
     <div class="text-end">
         <small class="text-muted">Total outstanding</small>
-        <div class="fs-4 fw-bold text-danger">{{ total_outstanding|floatformat:2 }}</div>
+        <div class="fs-4 fw-bold text-danger">{{ total_outstanding|money }}</div>
     </div>
 </div>
 
@@ -41,9 +43,9 @@
                         {% if row.guest.phone %}<small class="text-muted">{{ row.guest.phone }}</small>{% endif %}
                     </td>
                     <td class="text-center">{{ row.invoice_count }}</td>
-                    <td class="text-end">{{ row.total|floatformat:2 }}</td>
-                    <td class="text-end">{{ row.paid|floatformat:2 }}</td>
-                    <td class="text-end text-danger fw-bold">{{ row.balance|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.total|money }}</td>
+                    <td class="text-end">{{ row.paid|money }}</td>
+                    <td class="text-end text-danger fw-bold">{{ row.balance|money }}</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -56,9 +58,9 @@
                 <tr>
                     <td>Total</td>
                     <td class="text-center">{{ customer_rows|length }}</td>
-                    <td class="text-end">{{ total_billed|floatformat:2 }}</td>
-                    <td class="text-end">{{ total_paid|floatformat:2 }}</td>
-                    <td class="text-end text-danger">{{ total_outstanding|floatformat:2 }}</td>
+                    <td class="text-end">{{ total_billed|money }}</td>
+                    <td class="text-end">{{ total_paid|money }}</td>
+                    <td class="text-end text-danger">{{ total_outstanding|money }}</td>
                 </tr>
             </tfoot>
             {% endif %}
@@ -82,9 +84,9 @@
                     <td>{{ row.invoice.booking.guest }}</td>
                     <td>{{ row.invoice.booking.room.number }}</td>
                     <td>{{ row.invoice.created|date:'Y-m-d' }}</td>
-                    <td class="text-end">{{ row.total|floatformat:2 }}</td>
-                    <td class="text-end">{{ row.paid|floatformat:2 }}</td>
-                    <td class="text-end text-danger fw-semibold">{{ row.balance|floatformat:2 }}</td>
+                    <td class="text-end">{{ row.total|money }}</td>
+                    <td class="text-end">{{ row.paid|money }}</td>
+                    <td class="text-end text-danger fw-semibold">{{ row.balance|money }}</td>
                 </tr>
             {% empty %}
                 <tr><td colspan="7" class="text-center py-4 text-muted">No outstanding invoices.</td></tr>
