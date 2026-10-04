@@ -1,2 +1,95 @@
 
-{% extends 'accounting/base_accounting.html' %}{% load money_tags %}{% block content %}<div class="d-flex justify-content-between mb-3"><h3>Inventory Valuation</h3><a class="btn btn-primary" href="{% url 'inventory_movement_add' %}">Issue / Adjust Inventory</a></div><div class="card"><table class="table"><thead><tr><th>Item</th><th>Unit</th><th class="money">Current stock</th><th class="money">Weighted avg. cost</th><th class="money">Value</th></tr></thead><tbody>{% for r in rows %}<tr><td>{{r.item.name}}</td><td>{{r.item.unit}}</td><td class="money">{{r.stock|floatformat:2}}</td><td class="money">{{r.avg_cost|money}}</td><td class="money">{{r.value|money}}</td></tr>{% endfor %}</tbody><tfoot><tr class="fw-bold"><td colspan="4">Total inventory value</td><td class="money">{{total_value|money}}</td></tr></tfoot></table></div>{% endblock %}
+{% extends 'accounting/base_accounting.html' %}
+
+{% load money_tags %}
+
+{% block content %}
+
+    <div class="d-flex justify-content-between mb-3">
+
+        <h3>
+            Inventory Valuation
+        </h3>
+
+        <a
+            class="btn btn-primary"
+            href="{% url 'inventory_movement_add' %}"
+        >
+            Issue / Adjust Inventory
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <table class="table">
+
+            <thead>
+
+                <tr>
+                    <th>Item</th>
+                    <th>Unit</th>
+                    <th class="money">Current stock</th>
+                    <th class="money">Weighted avg. cost</th>
+                    <th class="money">Value</th>
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                {% for r in rows %}
+
+                    <tr>
+
+                        <td>
+                            {{ r.item.name }}
+                        </td>
+
+                        <td>
+                            {{ r.item.unit }}
+                        </td>
+
+                        <td class="money">
+                            {{ r.stock|floatformat:2 }}
+                        </td>
+
+                        <td class="money">
+                            {{ r.avg_cost|money }}
+                        </td>
+
+                        <td class="money">
+                            {{ r.value|money }}
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+
+            <tfoot>
+
+                <tr class="fw-bold">
+
+                    <td colspan="4">
+                        Total inventory value
+                    </td>
+
+                    <td class="money">
+                        {{ total_value|money }}
+                    </td>
+
+                </tr>
+
+            </tfoot>
+
+        </table>
+
+    </div>
+
+{% endblock %}
+

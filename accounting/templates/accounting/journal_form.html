@@ -1,1 +1,100 @@
-{% extends 'accounting/base_accounting.html' %}{% block content %}<div class="card"><div class="card-body"><h3>Post Journal Entry</h3><form method="post">{% csrf_token %}{{form.as_p}}<hr><h5>Lines</h5>{{formset.management_form}}<div class="table-responsive"><table class="table"><thead><tr><th>Account</th><th>Debit</th><th>Credit</th><th>Description</th><th>Delete</th></tr></thead><tbody>{% for f in formset %}<tr>{% for h in f.hidden_fields %}{{h}}{% endfor %}<td>{{f.account}}</td><td>{{f.debit}}</td><td>{{f.credit}}</td><td>{{f.description}}</td><td>{{f.DELETE}}</td></tr>{% endfor %}</tbody></table></div><button class="btn btn-primary">Post entry</button></form></div></div>{% endblock %}
+
+{% extends 'accounting/base_accounting.html' %}
+
+{% block content %}
+
+    <div class="card">
+
+        <div class="card-body">
+
+            <h3>
+                Post Journal Entry
+            </h3>
+
+
+            <form method="post">
+
+                {% csrf_token %}
+
+                {{ form.as_p }}
+
+                <hr>
+
+
+                <h5>
+                    Lines
+                </h5>
+
+                {{ formset.management_form }}
+
+
+                <div class="table-responsive">
+
+                    <table class="table">
+
+                        <thead>
+
+                            <tr>
+                                <th>Account</th>
+                                <th>Debit</th>
+                                <th>Credit</th>
+                                <th>Description</th>
+                                <th>Delete</th>
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for f in formset %}
+
+                                <tr>
+
+                                    {% for h in f.hidden_fields %}
+                                        {{ h }}
+                                    {% endfor %}
+
+                                    <td>
+                                        {{ f.account }}
+                                    </td>
+
+                                    <td>
+                                        {{ f.debit }}
+                                    </td>
+
+                                    <td>
+                                        {{ f.credit }}
+                                    </td>
+
+                                    <td>
+                                        {{ f.description }}
+                                    </td>
+
+                                    <td>
+                                        {{ f.DELETE }}
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <button class="btn btn-primary">
+                    Post entry
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+{% endblock %}
+

@@ -1,1 +1,84 @@
-{% extends 'accounting/base_accounting.html' %}{% load money_tags %}{% block content %}<div class="d-flex justify-content-between mb-3"><h3>Accounting Periods</h3><a class="btn btn-primary" href="{% url 'period_add' %}">New period</a></div><div class="card"><div class="table-responsive"><table class="table"><thead><tr><th>Period</th><th>Start</th><th>End</th><th>Status</th><th></th></tr></thead><tbody>{% for p in periods %}<tr><td>{{p.name}}</td><td>{{p.start_date}}</td><td>{{p.end_date}}</td><td>{{p.get_status_display}}</td><td><a href="{% url 'period_edit' p.pk %}">Edit</a></td></tr>{% endfor %}</tbody></table></div></div>{% endblock %}
+
+{% extends 'accounting/base_accounting.html' %}
+
+{% load money_tags %}
+
+{% block content %}
+
+    <div class="d-flex justify-content-between mb-3">
+
+        <h3>
+            Accounting Periods
+        </h3>
+
+        <a
+            class="btn btn-primary"
+            href="{% url 'period_add' %}"
+        >
+            New period
+        </a>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="table-responsive">
+
+            <table class="table">
+
+                <thead>
+
+                    <tr>
+                        <th>Period</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for p in periods %}
+
+                        <tr>
+
+                            <td>
+                                {{ p.name }}
+                            </td>
+
+                            <td>
+                                {{ p.start_date }}
+                            </td>
+
+                            <td>
+                                {{ p.end_date }}
+                            </td>
+
+                            <td>
+                                {{ p.get_status_display }}
+                            </td>
+
+                            <td>
+                                <a href="{% url 'period_edit' p.pk %}">
+                                    Edit
+                                </a>
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+{% endblock %}
+

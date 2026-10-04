@@ -1,2 +1,70 @@
 
-{% extends 'accounting/statement_base.html' %}{% load money_tags %}{% block statement_title %}Cash Flow{% endblock %}{% block statement_body %}<div class="card"><div class="card-body"><h4>Net cash movement: {{net_cash|money}}</h4></div><table class="table"><thead><tr><th>Account</th><th class="money">Debit</th><th class="money">Credit</th><th class="money">Movement</th></tr></thead><tbody>{% for r in rows %}<tr><td>{{r.account__name}}</td><td class="money">{{r.debit|money}}</td><td class="money">{{r.credit|money}}</td><td class="money">{{r.debit|add:r.credit|money}}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+{% extends 'accounting/statement_base.html' %}
+
+{% load money_tags %}
+
+{% block statement_title %}
+    Cash Flow
+{% endblock %}
+
+
+{% block statement_body %}
+
+    <div class="card">
+
+        <div class="card-body">
+
+            <h4>
+                Net cash movement:
+                {{ net_cash|money }}
+            </h4>
+
+        </div>
+
+
+        <table class="table">
+
+            <thead>
+                <tr>
+                    <th>Account</th>
+                    <th class="money">Debit</th>
+                    <th class="money">Credit</th>
+                    <th class="money">Movement</th>
+                </tr>
+            </thead>
+
+
+            <tbody>
+
+                {% for r in rows %}
+
+                    <tr>
+
+                        <td>
+                            {{ r.account__name }}
+                        </td>
+
+                        <td class="money">
+                            {{ r.debit|money }}
+                        </td>
+
+                        <td class="money">
+                            {{ r.credit|money }}
+                        </td>
+
+                        <td class="money">
+                            {{ r.debit|add:r.credit|money }}
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+{% endblock %}
+

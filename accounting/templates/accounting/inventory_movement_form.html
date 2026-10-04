@@ -1,1 +1,36 @@
-{% extends 'accounting/base_accounting.html' %}{% block content %}<div class="card"><div class="card-body"><h3>Inventory Movement</h3><p class="text-muted">Use Issue / COGS when inventory is consumed. This creates the matching COGS journal entry.</p><form method="post">{% csrf_token %}{{form.as_p}}<button class="btn btn-primary">Save &amp; Post</button></form></div></div>{% endblock %}
+
+{% extends 'accounting/base_accounting.html' %}
+
+{% block content %}
+
+    <div class="card">
+
+        <div class="card-body">
+
+            <h3>
+                Inventory Movement
+            </h3>
+
+            <p class="text-muted">
+                Use Issue / COGS when inventory is consumed.
+                This creates the matching COGS journal entry.
+            </p>
+
+            <form method="post">
+
+                {% csrf_token %}
+
+                {{ form.as_p }}
+
+                <button class="btn btn-primary">
+                    Save &amp; Post
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+{% endblock %}
+

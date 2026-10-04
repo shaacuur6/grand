@@ -1,1 +1,128 @@
-{% extends 'accounting/statement_base.html' %}{% load money_tags %}{% block statement_filters %}<label class="align-self-center text-muted small mb-0">As of</label><input class="form-control" type="date" name="as_of" value="{{as_of}}">{% endblock %}{% block statement_title %}Balance Sheet{% endblock %}{% block statement_body %}<div class="row g-3"><div class="col-md-4"><div class="card"><div class="card-body"><h5>Assets</h5>{% for r in assets %}<div class="d-flex justify-content-between"><span>{{r.account__name}}</span><span>{{r.balance|money}}</span></div>{% endfor %}<hr><strong class="d-flex justify-content-between"><span>Total assets</span><span>{{total_assets|money}}</span></strong></div></div></div><div class="col-md-4"><div class="card"><div class="card-body"><h5>Liabilities</h5>{% for r in liabilities %}<div class="d-flex justify-content-between"><span>{{r.account__name}}</span><span>{{r.balance|money}}</span></div>{% endfor %}<hr><strong class="d-flex justify-content-between"><span>Total liabilities</span><span>{{total_liabilities|money}}</span></strong></div></div></div><div class="col-md-4"><div class="card"><div class="card-body"><h5>Equity</h5>{% for r in equity %}<div class="d-flex justify-content-between"><span>{{r.account__name}}</span><span>{{r.balance|money}}</span></div>{% endfor %}<div class="d-flex justify-content-between"><span>Cumulative retained earnings / profit</span><span>{{cumulative_profit|money}}</span></div><div class="d-flex justify-content-between text-muted small"><span>Profit in selected period</span><span>{{net_profit|money}}</span></div><hr><strong class="d-flex justify-content-between"><span>Total equity</span><span>{{total_equity|money}}</span></strong></div></div></div></div>{% endblock %}
+
+{% extends 'accounting/statement_base.html' %}
+{% load money_tags %}
+
+{% block statement_filters %}
+    <label class="align-self-center text-muted small mb-0">
+        As of
+    </label>
+
+    <input
+        class="form-control"
+        type="date"
+        name="as_of"
+        value="{{ as_of }}"
+    >
+{% endblock %}
+
+
+{% block statement_title %}
+    Balance Sheet
+{% endblock %}
+
+
+{% block statement_body %}
+
+    <div class="row g-3">
+
+        <!-- Assets -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+
+                    <h5>Assets</h5>
+
+                    {% for r in assets %}
+                        <div class="d-flex justify-content-between">
+                            <span>{{ r.account__name }}</span>
+                            <span>{{ r.balance|money }}</span>
+                        </div>
+                    {% endfor %}
+
+                    <hr>
+
+                    <strong class="d-flex justify-content-between">
+                        <span>Total assets</span>
+                        <span>{{ total_assets|money }}</span>
+                    </strong>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Liabilities -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+
+                    <h5>Liabilities</h5>
+
+                    {% for r in liabilities %}
+                        <div class="d-flex justify-content-between">
+                            <span>{{ r.account__name }}</span>
+                            <span>{{ r.balance|money }}</span>
+                        </div>
+                    {% endfor %}
+
+                    <hr>
+
+                    <strong class="d-flex justify-content-between">
+                        <span>Total liabilities</span>
+                        <span>{{ total_liabilities|money }}</span>
+                    </strong>
+
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Equity -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+
+                    <h5>Equity</h5>
+
+                    {% for r in equity %}
+                        <div class="d-flex justify-content-between">
+                            <span>{{ r.account__name }}</span>
+                            <span>{{ r.balance|money }}</span>
+                        </div>
+                    {% endfor %}
+
+                    <div class="d-flex justify-content-between">
+                        <span>
+                            Cumulative retained earnings / profit
+                        </span>
+
+                        <span>
+                            {{ cumulative_profit|money }}
+                        </span>
+                    </div>
+
+                    <div class="d-flex justify-content-between text-muted small">
+                        <span>
+                            Profit in selected period
+                        </span>
+
+                        <span>
+                            {{ net_profit|money }}
+                        </span>
+                    </div>
+
+                    <hr>
+
+                    <strong class="d-flex justify-content-between">
+                        <span>Total equity</span>
+                        <span>{{ total_equity|money }}</span>
+                    </strong>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+{% endblock %}
+
