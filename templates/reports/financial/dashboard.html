@@ -1,5 +1,5 @@
-{% load money_tags %}
-{% extends "base.html" %}{% block title %}Financial Dashboard | Grand HMS{% endblock %}{% block content %}
+
+{% extends "base.html" %}{% load money_tags %}{% block title %}Financial Dashboard | Grand HMS{% endblock %}{% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4"><div><h2 class="fw-bold mb-1">Financial Dashboard</h2><p class="text-muted mb-0">Management view for {{ start }} to {{ end }}.</p></div><a href="{% url 'expense_add' %}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Record Expense</a></div>
 {% include "reports/financial/_filter.html" %}
 <div class="row g-3 mb-4"><div class="col-md-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Revenue</small><h3>{{ revenue.total|money }}</h3></div></div></div><div class="col-md-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">COGS</small><h3>{{ cogs|money }}</h3></div></div></div><div class="col-md-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Operating Expenses</small><h3>{{ total_expenses|money }}</h3></div></div></div><div class="col-md-3"><div class="card stat-card"><div class="card-body"><small class="text-muted">Net Profit</small><h3 class="{% if profit < 0 %}text-danger{% else %}text-success{% endif %}">{{ profit|money }}</h3></div></div></div></div>
