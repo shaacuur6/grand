@@ -1,6 +1,4 @@
 {% extends "base.html" %}
-{% load money_tags %}
-
 {% block title %}Bookings{% endblock %}
 {% block content %}
 <div class="container-fluid py-3">
@@ -21,7 +19,7 @@
             <td><span class="badge text-bg-primary">{{ booking.room.number }}</span>{% if booking.with_ac %} <span class="badge text-bg-success">AC</span>{% endif %}</td>
             <td>{% if booking.status == 'checked_in' %}<span class="badge text-bg-success">Checked In</span>{% else %}<span class="badge text-bg-warning">Reserved</span>{% endif %}</td>
             <td>{{ booking.check_in }}{% if booking.check_out %}<br><small>→ {{ booking.check_out }}</small>{% endif %}</td>
-            <td>{{ booking.room_price|money }}</td>
+            <td>${{ booking.room_price|floatformat:2 }}</td>
             <td class="text-nowrap">
               <a href="{% url 'booking_detail' booking.id %}" class="btn btn-sm btn-outline-primary" title="Open"><i class="bi bi-eye"></i></a>
               <a href="{% url 'booking_update' booking.id %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>

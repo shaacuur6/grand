@@ -1,2 +1,1 @@
 {% extends 'accounting/base_accounting.html' %}{% block content %}<div class="card"><div class="card-body"><h3>Opening Balance</h3><p class="text-muted">Enter an opening balance for an account. The offset is posted to opening/retained equity.</p><form method="post">{% csrf_token %}{{form.as_p}}<button class="btn btn-primary">Post opening balance</button></form></div></div>{% endblock %}
-{% load money_tags %}

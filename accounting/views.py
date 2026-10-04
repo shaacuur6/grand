@@ -20,57 +20,67 @@ def _date_range(request):
 
 class AccountingDashboardView(AccountingRoleMixin, TemplateView):
     template_name='accounting/dashboard.html'
-    def get_context_data(self,**kwargs):
-        c=super().get_context_data(**kwargs); seed_accounts(); start,end=_date_range(self.request)
-        qs=JournalLine.objects.filter(entry__date__gte=start,entry__date__lte=end,entry__is_posted=True)
-        def total(types): return qs.filter(account__account_type__in=types).aggregate(d=Sum('debit'),cr=Sum('credit'))
-        rev=total(['revenue']); exp=total(['expense','cogs']);
-        revenue=(rev['cr'] or 0)-(rev['d'] or 0)
-        posted_costs=(exp['d'] or 0)-(exp['cr'] or 0)
-        from purchases.models import Purchase
-        from billing.models import Payment
-        purchase_costs=Purchase.objects.filter(date__gte=start,date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0')
-        costs=posted_costs if posted_costs else purchase_costs
 
-        # The dashboard previously called the period's net movement in cash
-        # "Cash & bank". That is a balance/movement metric and cannot be added
-        # to ending receivables to reconcile with revenue. For the revenue
-        # bridge, use customer collections during the same period and compare
-        # them with the change in operational receivables.
+    def get_context_data(self, **kwargs):
+        c = super().get_context_data(**kwargs)
+        seed_accounts()
+        start, end = _date_range(self.request)
+
+        # Use the same authoritative P&L calculation as Finance, Profit & Loss,
+        # and the accounting statement. This prevents dashboard totals from
+        # drifting apart when operational data and posted journals differ.
+        from .services import get_profit_loss_statement
+        pnl = get_profit_loss_statement(start, end)
+
+        from billing.models import Payment
         customer_collections = Payment.objects.filter(
-            created__date__gte=start,
-            created__date__lte=end,
+            created__date__gte=start, created__date__lte=end,
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
         ending_receivable = get_operational_receivables_as_of(end)
-        from datetime import date, datetime
+        from datetime import date, timedelta
         try:
             start_date = date.fromisoformat(start) if isinstance(start, str) else start
-        except ValueError:
+        except (TypeError, ValueError):
             start_date = date.today().replace(day=1)
-        prior_date = start_date - __import__('datetime').timedelta(days=1)
-        beginning_receivable = get_operational_receivables_as_of(prior_date)
+        beginning_receivable = get_operational_receivables_as_of(start_date - timedelta(days=1))
         ar_change = ending_receivable - beginning_receivable
-        revenue_bridge = customer_collections + ar_change
-        cash_balance_movement = self._balance_many(['1000','1010','1020'],qs)
+
+        qs = JournalLine.objects.filter(
+            entry__date__gte=start, entry__date__lte=end, entry__is_posted=True
+        )
+        cash_balance_movement = self._balance_many(['1000', '1010', '1020'], qs)
 
         c.update(
-            start=start,end=end,revenue=revenue,costs=costs,profit=revenue-costs,
-            receivable=ending_receivable, beginning_receivable=beginning_receivable,
-            customer_collections=customer_collections, ar_change=ar_change,
-            revenue_bridge=revenue_bridge, cash=cash_balance_movement,
-            payable=self._balance('2000',qs),
+            start=start, end=end,
+            revenue=pnl['total_revenue'],
+            revenue_breakdown=pnl['revenue'],
+            costs=pnl['cogs'] + pnl['total_expenses'],
+            cogs=pnl['cogs'],
+            cogs_source=pnl['cogs_source'],
+            expenses=pnl['total_expenses'],
+            gross_profit=pnl['gross_profit'],
+            operating_profit=pnl['operating_profit'],
+            profit=pnl['net_profit'],
+            receivable=ending_receivable,
+            beginning_receivable=beginning_receivable,
+            customer_collections=customer_collections,
+            ar_change=ar_change,
+            revenue_bridge=customer_collections + ar_change,
+            cash=cash_balance_movement,
+            payable=self._balance('2000', qs),
             accounts=Account.objects.filter(active=True).count(),
-            entries=JournalEntry.objects.filter(date__gte=start,date__lte=end).count()
+            entries=JournalEntry.objects.filter(date__gte=start, date__lte=end).count(),
         )
         return c
-    def _balance(self,codes,qs):
-        if isinstance(codes,str): codes=[codes]
-        a=qs.filter(account__code__in=codes).aggregate(d=Sum('debit'),c=Sum('credit'))
-        return (a['d'] or 0)-(a['c'] or 0)
 
-    def _balance_many(self,codes,qs):
-        """Return the net debit balance for multiple balance-sheet accounts."""
-        return self._balance(codes, qs)
+    def _balance(self, code, qs):
+        a = qs.filter(account__code=code).aggregate(d=Sum('debit'), c=Sum('credit'))
+        return (a['d'] or 0) - (a['c'] or 0)
+
+    def _balance_many(self, codes, qs):
+        a = qs.filter(account__code__in=codes).aggregate(d=Sum('debit'), c=Sum('credit'))
+        return (a['d'] or 0) - (a['c'] or 0)
 
 class SyncView(AccountingRoleMixin, TemplateView):
     def post(self,request,*args,**kwargs):

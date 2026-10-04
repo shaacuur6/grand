@@ -1,2 +1,1 @@
-{% extends "base.html" %}
-{% load money_tags %}{% block content %}<h2>Unpaid Orders by Waiter</h2>{% include "reports/includes/report_filter.html" %}<div class="card"><table class="table"><thead><tr><th>Waiter</th><th>Pending</th></tr></thead><tbody>{% for r in report %}<tr><td>{{ r.waiter }}</td><td>{{ r.unpaid_total|money }}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+{% extends "base.html" %}{% block content %}<h2>Unpaid Orders by Waiter</h2>{% include "reports/includes/report_filter.html" %}<div class="card"><table class="table"><thead><tr><th>Waiter</th><th>Pending</th></tr></thead><tbody>{% for r in report %}<tr><td>{{ r.waiter }}</td><td>${{ r.unpaid_total|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}

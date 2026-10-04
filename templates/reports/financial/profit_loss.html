@@ -1,34 +1,32 @@
 {% extends "base.html" %}
-{% load money_tags %}
-
 {% block title %}Profit & Loss | Grand HMS{% endblock %}
 {% block content %}
 <div class="mb-4"><h2 class="fw-bold">Profit &amp; Loss Statement</h2><p class="text-muted">For the period: {{ start }} to {{ end }}.</p></div>
 {% include "reports/financial/_filter.html" %}
 <div class="row g-3 mb-4">
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Total Revenue</small><h4>{{ revenue.total|money }}</h4></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Gross Profit</small><h4>{{ gross_profit|money }}</h4></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Operating Expenses</small><h4>{{ costs.expenses|money }}</h4></div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body"><small>Net Profit / (Loss)</small><h4 class="{% if net_profit < 0 %}text-danger{% else %}text-success{% endif %}">{{ net_profit|money }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Total Revenue</small><h4>{{ revenue.total|floatformat:2 }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Gross Profit</small><h4>{{ gross_profit|floatformat:2 }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Operating Expenses</small><h4>{{ costs.expenses|floatformat:2 }}</h4></div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body"><small>Net Profit / (Loss)</small><h4 class="{% if net_profit < 0 %}text-danger{% else %}text-success{% endif %}">{{ net_profit|floatformat:2 }}</h4></div></div></div>
 </div>
 <div class="card mb-3"><div class="card-body">
 <table class="table table-borderless align-middle mb-0">
 <tr><th colspan="2" class="fs-5">REVENUE</th></tr>
-<tr><td>Room Revenue</td><td class="text-end">{{ revenue.room|money }}</td></tr>
-<tr><td>Restaurant Revenue</td><td class="text-end">{{ revenue.restaurant|money }}</td></tr>
-<tr><td>Service Revenue</td><td class="text-end">{{ revenue.services|money }}</td></tr>
-<tr><td>Sales Discounts</td><td class="text-end">{{ revenue.discounts|money }}</td></tr>
-<tr class="border-top fw-bold"><td>Total Revenue</td><td class="text-end">{{ revenue.total|money }}</td></tr>
+<tr><td>Room Revenue</td><td class="text-end">{{ revenue.room|floatformat:2 }}</td></tr>
+<tr><td>Restaurant Revenue</td><td class="text-end">{{ revenue.restaurant|floatformat:2 }}</td></tr>
+<tr><td>Service Revenue</td><td class="text-end">{{ revenue.services|floatformat:2 }}</td></tr>
+<tr><td>Sales Discounts</td><td class="text-end">{{ revenue.discounts|floatformat:2 }}</td></tr>
+<tr class="border-top fw-bold"><td>Total Revenue</td><td class="text-end">{{ revenue.total|floatformat:2 }}</td></tr>
 <tr><th colspan="2" class="fs-5 pt-4">COST OF SALES / COST OF REVENUE</th></tr>
-<tr><td>Cost of Goods Sold</td><td class="text-end">{{ cogs|money }}</td></tr>
-<tr class="border-top fw-bold"><td>Gross Profit</td><td class="text-end">{{ gross_profit|money }}</td></tr>
+<tr><td>Cost of Goods Sold</td><td class="text-end">{{ cogs|floatformat:2 }}</td></tr>
+<tr class="border-top fw-bold"><td>Gross Profit</td><td class="text-end">{{ gross_profit|floatformat:2 }}</td></tr>
 <tr><td>Gross Profit Margin</td><td class="text-end">{{ gross_margin|floatformat:2 }}%</td></tr>
 <tr><th colspan="2" class="fs-5 pt-4">OPERATING EXPENSES</th></tr>
-{% for row in expense_rows %}<tr><td>{{ row.category__name }}</td><td class="text-end">{{ row.total|money }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted">No operating expenses in this period.</td></tr>{% endfor %}
-<tr class="border-top fw-bold"><td>Total Operating Expenses</td><td class="text-end">{{ costs.expenses|money }}</td></tr>
-<tr class="border-top fw-bold"><td>Operating Profit</td><td class="text-end">{{ operating_profit|money }}</td></tr>
+{% for row in expense_rows %}<tr><td>{{ row.category__name }}</td><td class="text-end">{{ row.total|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted">No operating expenses in this period.</td></tr>{% endfor %}
+<tr class="border-top fw-bold"><td>Total Operating Expenses</td><td class="text-end">{{ costs.expenses|floatformat:2 }}</td></tr>
+<tr class="border-top fw-bold"><td>Operating Profit</td><td class="text-end">{{ operating_profit|floatformat:2 }}</td></tr>
 <tr><td>Operating Margin</td><td class="text-end">{{ operating_margin|floatformat:2 }}%</td></tr>
-<tr class="border-top fw-bold fs-5"><td>NET PROFIT / (LOSS)</td><td class="text-end">{{ net_profit|money }}</td></tr>
+<tr class="border-top fw-bold fs-5"><td>NET PROFIT / (LOSS)</td><td class="text-end">{{ net_profit|floatformat:2 }}</td></tr>
 <tr><td>Net Profit Margin</td><td class="text-end">{{ margin|floatformat:2 }}%</td></tr>
 </table>
 </div></div>

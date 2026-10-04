@@ -384,15 +384,35 @@ class FinancialDashboardView(FinancialReportBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        revenue = self._revenue(start, end)
-        costs = self._costs(start, end)
+        from accounting.services import get_operational_receivables_as_of, get_profit_loss_statement, seed_accounts, sync_operational_journals
+        seed_accounts()
+        sync_operational_journals(self.request.user)
+        pnl = get_profit_loss_statement(start, end)
+
+        revenue = {
+            'room': pnl['revenue'].get('4000', Decimal('0.00')),
+            'restaurant': pnl['revenue'].get('4100', Decimal('0.00')),
+            'services': pnl['revenue'].get('4200', Decimal('0.00')),
+            'discounts': pnl['revenue'].get('4900', Decimal('0.00')),
+            'total': pnl['total_revenue'],
+        }
+        costs = {
+            'purchases': pnl['purchase_cogs'],
+            'cogs': pnl['cogs'],
+            'expenses': pnl['total_expenses'],
+            'total': pnl['cogs'] + pnl['total_expenses'],
+        }
         collections = Payment.objects.filter(created__date__gte=start, created__date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         cash_out = costs['total']
-        profit = revenue['total'] - costs['total']
-        from accounting.services import get_operational_receivables_as_of
         receivables = get_operational_receivables_as_of(end)
-        c.update(form=form, start=start, end=end, revenue=revenue, costs=costs, collections=collections,
-                 cash_out=cash_out, net_cash=collections-cash_out, profit=profit, receivables=receivables)
+        c.update(
+            form=form, start=start, end=end, revenue=revenue, costs=costs,
+            collections=collections, cash_out=cash_out, net_cash=collections-cash_out,
+            profit=pnl['net_profit'], receivables=receivables,
+            cogs=pnl['cogs'], cogs_source=pnl['cogs_source'],
+            gross_profit=pnl['gross_profit'], operating_profit=pnl['operating_profit'],
+            total_expenses=pnl['total_expenses'], net_profit=pnl['net_profit'],
+        )
         return c
 
 
