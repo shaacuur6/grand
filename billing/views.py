@@ -137,9 +137,17 @@ class PaymentSummaryView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         rows = []
         bookings = Booking.objects.filter(status__in=["checked_in", "checked_out"]).select_related("guest", "room")
         for booking in bookings:
-            invoice = Invoice.objects.filter(booking=booking).first() or sync_invoice(booking)
-            summary = get_financial_summary(booking, as_of=booking.check_out or timezone.localdate(),
-                                            include_checkout_night=booking.status == "checked_out")
+            invoice = sync_invoice(
+                booking,
+                as_of=booking.check_out or timezone.localdate(),
+                include_checkout_night=booking.status == "checked_out",
+                rebuild_payment_allocations=True,
+            )
+            summary = get_financial_summary(
+                booking,
+                as_of=booking.check_out or timezone.localdate(),
+                include_checkout_night=booking.status == "checked_out",
+            )
             rows.append({"booking": booking, **summary})
         context["summary"] = rows
         return context
@@ -166,7 +174,7 @@ class PaymentView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
             "booking": booking, "invoice": invoice,
             "summary": get_financial_summary(booking, as_of=booking.check_out or timezone.localdate(),
                                               include_checkout_night=booking.status == "checked_out"),
-            "payments": invoice.payment_set.select_related("received_by").order_by("-created", "-id"),
+            "payments": invoice.payment_set.select_related("received_by").prefetch_related("allocations").order_by("-created", "-id"),
             "form": PaymentForm(),
         })
         return context
@@ -274,8 +282,13 @@ class PaymentReceiptView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         booking = get_object_or_404(Booking, pk=self.kwargs["pk"])
         invoice = get_object_or_404(Invoice, booking=booking)
+        from .utils import rebuild_allocations
+        rebuild_allocations(invoice)
+        payments = invoice.payment_set.select_related("received_by").prefetch_related(
+            "allocations", "roompaymentallocation_set", "restaurantpaymentallocation_set", "servicepaymentallocation_set"
+        ).order_by("created", "id")
         context.update({"booking": booking, "invoice": invoice,
-                        "payments": invoice.payment_set.all().order_by("created", "id"),
+                        "payments": payments,
                         "paid_total": get_paid_total(invoice), "balance": invoice.balance})
         return context
 
@@ -286,6 +299,8 @@ def payment_receipt_pdf(request, pk):
         return HttpResponseForbidden("<h1>You are not allowed to access this receipt.</h1>")
     booking = get_object_or_404(Booking, pk=pk)
     invoice = get_object_or_404(Invoice, booking=booking)
+    from .utils import rebuild_allocations
+    rebuild_allocations(invoice)
     context = {"booking": booking, "invoice": invoice,
                "payments": invoice.payment_set.all().order_by("created", "id"),
                "paid_total": get_paid_total(invoice), "balance": invoice.balance,

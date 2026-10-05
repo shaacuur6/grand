@@ -1,116 +1,60 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-<div class="container mt-4">
-
-    <div class="card shadow">
-
-        <div class="card-header bg-dark text-white">
-
-            <h4>Booking Payment Summary</h4>
-
+<div class="container-fluid mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Booking Payment Summary</h4>
+            <a href="{% url 'payment_list' %}" class="btn btn-light btn-sm">Payment History</a>
         </div>
-
         <div class="card-body">
-
-            <table class="table table-bordered table-striped">
-
-                <thead class="table-dark">
-
-                    <tr>
-
-                        <th>Guest</th>
-                        <th>Room</th>
-
-                        <th>Restaurant</th>
-                        <th>Paid</th>
-                        <!--<th>Balance</th>-->
-
-                        <th>Service</th>
-                        <th>Paid</th>
-                        <!--<th>Balance</th>-->
-
-                        <th>Room</th>
-                        <th>Paid</th>
-                        <!--<th>Balance</th>-->
-                        <th class="text-danger">Total Balance</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Guest</th>
+                            <th>Room</th>
+                            <th class="text-end">Room Total</th>
+                            <th class="text-end">Room Paid</th>
+                            <th class="text-end">Restaurant Total</th>
+                            <th class="text-end">Restaurant Paid</th>
+                            <th class="text-end">Service Total</th>
+                            <th class="text-end">Service Paid</th>
+                            <th class="text-end">Grand Total</th>
+                            <th class="text-end">Paid</th>
+                            <th class="text-end">Balance</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                     {% for item in summary %}
-
-                    <tr>
-
-                        <td>
-                            {{ item.booking.guest }}
-                        </td>
-
-                        <td>
-                            {{ item.booking.room }}
-                        </td>
-
-                        <!-- RESTAURANT -->
-
-                        <td>
-                            ${{ item.restaurant_total|floatformat:2 }}
-                        </td>
-
-                        <td class="text-success">
-                            ${{ item.restaurant_paid|floatformat:2 }}
-                        </td>
-
-                        <!--<td class="text-danger">
-                            ${{ item.restaurant_balance|floatformat:2 }}
-                        </td>-->
-
-
-                        <!-- SERVICE -->
-
-                        <td>
-                            ${{ item.service_total|floatformat:2 }}
-                        </td>
-
-                        <td class="text-success">
-                            ${{ item.service_paid|floatformat:2 }}
-                        </td>
-
-                        <!--<td class="text-danger">
-                            ${{ item.service_balance|floatformat:2 }}
-                        </td>
-
-
-                        <!-- ROOM -->
-
-                        <td>
-                            ${{ item.room_total|floatformat:2 }}
-                        </td>
-
-                        <td class="text-success">
-                            ${{ item.room_paid|floatformat:2 }}
-                        </td>
-
-                       <!--  <td class="text-danger">
-                            ${{ item.room_balance|floatformat:2 }}
-                        </td>-->
-                        <td class="text-danger">
-                            ${{ item.total_balance|floatformat:2 }}
-                    </tr>
-
+                        <tr>
+                            <td>{{ item.booking.guest }}</td>
+                            <td>{{ item.booking.room }}</td>
+                            <td class="text-end">{{ item.room_total|money }}</td>
+                            <td class="text-end text-success">{{ item.room_paid|money }}</td>
+                            <td class="text-end">{{ item.restaurant_total|money }}</td>
+                            <td class="text-end text-success">{{ item.restaurant_paid|money }}</td>
+                            <td class="text-end">{{ item.service_total|money }}</td>
+                            <td class="text-end text-success">{{ item.service_paid|money }}</td>
+                            <td class="text-end fw-bold">{{ item.grand_total|money }}</td>
+                            <td class="text-end text-success">{{ item.paid_total|money }}</td>
+                            <td class="text-end {% if item.total_balance > 0 %}text-danger{% else %}text-success{% endif %}">{{ item.total_balance|money }}</td>
+                            <td>
+                                {% if item.total_balance <= 0 %}<span class="badge bg-success">Paid</span>
+                                {% elif item.paid_total > 0 %}<span class="badge bg-warning text-dark">Partial</span>
+                                {% else %}<span class="badge bg-danger">Unpaid</span>{% endif %}
+                            </td>
+                            <td><a href="{% url 'payment' item.booking.pk %}" class="btn btn-sm btn-primary">Payment</a></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="13" class="text-center text-muted py-4">No checked-in or checked-out bookings found.</td></tr>
                     {% endfor %}
-
-                </tbody>
-
-            </table>
-
+                    </tbody>
+                </table>
+            </div>
         </div>
-
     </div>
-
 </div>
-
 {% endblock %}

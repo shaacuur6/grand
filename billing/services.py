@@ -124,11 +124,27 @@ def get_financial_summary(booking, *, as_of=None, include_checkout_night=False):
         totals["room_total"] + totals["restaurant_total"] + totals["service_total"] - discount,
     )
     paid = get_paid_total(invoice) if invoice else ZERO
+    component_paid = {"room": ZERO, "restaurant": ZERO, "service": ZERO}
+    if invoice:
+        from .models import RoomPaymentAllocation, RestaurantPaymentAllocation, ServicePaymentAllocation
+        component_paid["room"] = RoomPaymentAllocation.objects.filter(payment__invoice=invoice).aggregate(total=Sum("amount"))["total"] or ZERO
+        component_paid["restaurant"] = RestaurantPaymentAllocation.objects.filter(payment__invoice=invoice).aggregate(total=Sum("amount"))["total"] or ZERO
+        component_paid["service"] = ServicePaymentAllocation.objects.filter(payment__invoice=invoice).aggregate(total=Sum("amount"))["total"] or ZERO
+    room_balance = max(ZERO, totals["room_total"] - component_paid["room"])
+    restaurant_balance = max(ZERO, totals["restaurant_total"] - component_paid["restaurant"])
+    service_balance = max(ZERO, totals["service_total"] - component_paid["service"])
     return {
         **totals,
         "discount": discount,
         "grand_total": grand_total,
         "paid_total": paid,
-        "balance": grand_total - paid,
+        "balance": max(ZERO, grand_total - paid),
+        "room_paid": component_paid["room"],
+        "restaurant_paid": component_paid["restaurant"],
+        "service_paid": component_paid["service"],
+        "room_balance": room_balance,
+        "restaurant_balance": restaurant_balance,
+        "service_balance": service_balance,
+        "total_balance": max(ZERO, grand_total - paid),
         "invoice": invoice,
     }

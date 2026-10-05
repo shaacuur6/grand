@@ -33,6 +33,9 @@
             <th>Date</th>
             <th>Amount</th>
             <th>Method</th>
+            <th>Room</th>
+            <th>Restaurant</th>
+            <th>Service</th>
         </tr>
 
         {% for p in payments %}
@@ -40,6 +43,9 @@
             <td>{{ p.created|date:"d-M-Y H:i" }}</td>
             <td>${{ p.amount|floatformat:2 }}</td>
             <td>{{ p.payment_method }}</td>
+            <td>{% for a in p.allocations.all %}{% if a.allocation_type == "room" %}{{ a.amount|money }}{% endif %}{% endfor %}</td>
+            <td>{% for a in p.restaurantpaymentallocation_set.all %}{{ a.amount|money }}{% empty %}{{ 0|money }}{% endfor %}</td>
+            <td>{% for a in p.servicepaymentallocation_set.all %}{{ a.amount|money }}{% empty %}{{ 0|money }}{% endfor %}</td>
         </tr>
         {% endfor %}
     </table>

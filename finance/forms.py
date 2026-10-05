@@ -8,6 +8,13 @@ class ExpenseCategoryForm(forms.ModelForm):
         widgets = {'name': forms.TextInput(attrs={'class': 'form-control'}), 'active': forms.CheckboxInput(attrs={'class': 'form-check-input'})}
 
 class ExpenseForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        qs = ExpenseCategory.objects.filter(active=True)
+        if self.instance and self.instance.pk and self.instance.category_id:
+            qs = ExpenseCategory.objects.filter(pk=self.instance.category_id) | qs
+        self.fields["category"].queryset = qs.distinct().order_by("name")
+
     class Meta:
         model = Expense
         fields = ['category', 'description', 'amount', 'date', 'payment_method', 'reference', 'notes']
