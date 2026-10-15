@@ -182,13 +182,12 @@ class InventoryMovementCreateView(AccountingRoleMixin,CreateView):
         post_inventory_movement(obj,self.request.user); messages.success(self.request,'Inventory movement posted to the ledger.'); return redirect(self.success_url)
 
 class StatementBase(AccountingRoleMixin,TemplateView):
+    """Read-only accounting statements.
+
+    Ledger synchronization is an explicit, authorized POST action at
+    accounting:accounting_sync. GET requests must never rebuild accounting data.
+    """
     def get_context_data(self, **kwargs):
-        # Keep the double-entry reports in sync with the existing HMS operational
-        # modules. Finance/reports read invoices and expenses directly, while the
-        # accounting statements read JournalLine. Rebuilding the operational
-        # journals here makes the accounting statements reflect the same activity.
-        seed_accounts()
-        sync_operational_journals(self.request.user)
         return super().get_context_data(**kwargs)
 
     def rows(self,types,start,end):

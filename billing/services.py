@@ -41,7 +41,7 @@ def get_booking_totals(booking, as_of=None, include_checkout_night=False):
                     nights = 1
                 nights = max(nights, 0)
             elif stay.start_date <= as_of:
-                nights = max((as_of - stay.start_date).days, 1)
+                nights = (as_of - stay.start_date).days + 1
             else:
                 nights = 0
             room_total += Decimal(nights) * stay.rate

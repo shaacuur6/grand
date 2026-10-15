@@ -33,7 +33,7 @@ class DateRangeForm(forms.Form):
     waiter = forms.ModelChoiceField(queryset=User.objects.filter(userprofile__role="waiter").order_by("username"), required=False, empty_label="All waiters")
     category = forms.ModelChoiceField(queryset=FoodCategory.objects.all().order_by("name"), required=False, empty_label="All categories")
     food = forms.ModelChoiceField(queryset=FoodItem.objects.all().order_by("name"), required=False, empty_label="All food")
-    supplier = forms.ModelChoiceField(queryset=Supplier.objects.all().order_by("name"), required=False, empty_label="All suppliers")
+    #supplier = forms.ModelChoiceField(queryset=Supplier.objects.all().order_by("name"), required=False, empty_label="All suppliers")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

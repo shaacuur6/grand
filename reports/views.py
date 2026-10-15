@@ -4,6 +4,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import render
+from django.http import HttpResponse
+from datetime import timedelta
 from django.utils import timezone
 from django.views.generic import TemplateView, View
 
@@ -47,13 +49,13 @@ class ReportsDashboardView(ReportBase):
 
 
 class HotelReportBase(ReportBase):
-    def filtered_bookings(self):
+    def filtered_bookings(self, apply_date_filters=True):
         form = ReportFilterForm(self.request.GET or None)
         qs = Booking.objects.select_related("guest", "room").prefetch_related("room_stays")
         if form.is_valid():
             d = form.cleaned_data
-            if d.get("start_date"): qs = qs.filter(check_in__gte=d["start_date"])
-            if d.get("end_date"): qs = qs.filter(check_in__lte=d["end_date"])
+            if apply_date_filters and d.get("start_date"): qs = qs.filter(check_in__gte=d["start_date"])
+            if apply_date_filters and d.get("end_date"): qs = qs.filter(check_in__lte=d["end_date"])
             if d.get("room"): qs = qs.filter(room=d["room"])
             if d.get("room_type"): qs = qs.filter(room__room_type=d["room_type"])
             if d.get("guest"): qs = qs.filter(guest=d["guest"])
@@ -65,16 +67,32 @@ class HotelReportBase(ReportBase):
         return form, qs.distinct()
 
 
+def filter_booking_dates(qs, form, field_name, today=None):
+    """Apply an inclusive report range to check_in or check_out."""
+    today = today or timezone.localdate()
+    if not form.is_valid():
+        return qs.none()
+    start = form.cleaned_data.get("start_date")
+    end = form.cleaned_data.get("end_date")
+    if start:
+        qs = qs.filter(**{f"{field_name}__gte": start})
+    if end:
+        qs = qs.filter(**{f"{field_name}__lte": end})
+    if not start and not end:
+        qs = qs.filter(**{field_name: today})
+    return qs
+
+
 class DailyCheckInsReportView(HotelReportBase):
     template_name="reports/hotel/daily_checkins.html"
     def get_context_data(self, **kwargs):
-        c=super().get_context_data(**kwargs); form,qs=self.filtered_bookings(); day=self.request.GET.get("start_date") or str(timezone.localdate()); qs=qs.filter(check_in=day); c.update(form=form,bookings=qs.order_by("room__number")); return c
+        c=super().get_context_data(**kwargs); form,qs=self.filtered_bookings(apply_date_filters=False); qs=filter_booking_dates(qs,form,"check_in"); c.update(form=form,bookings=qs.order_by("room__number")); return c
 
 
 class DailyCheckOutsReportView(HotelReportBase):
     template_name="reports/hotel/daily_checkouts.html"
     def get_context_data(self, **kwargs):
-        c=super().get_context_data(**kwargs); form,qs=self.filtered_bookings(); day=self.request.GET.get("end_date") or str(timezone.localdate()); qs=qs.filter(check_out=day); c.update(form=form,bookings=qs.order_by("room__number")); return c
+        c=super().get_context_data(**kwargs); form,qs=self.filtered_bookings(apply_date_filters=False); qs=filter_booking_dates(qs,form,"check_out"); c.update(form=form,bookings=qs.order_by("room__number")); return c
 
 
 class ReservationReportView(HotelReportBase):
@@ -89,25 +107,111 @@ class GuestHistoryReportView(HotelReportBase):
         c=super().get_context_data(**kwargs); form,qs=self.filtered_bookings(); c.update(form=form,bookings=qs.order_by("-check_in"),total_bookings=qs.count()); return c
 
 
-def stay_rows(bookings):
-    rows=[]; total=Decimal("0.00"); today=timezone.localdate()
-    stays=RoomStay.objects.filter(booking__in=bookings).select_related("booking__guest","room").order_by("-start_date","room__number")
+def stay_rows(bookings, start=None, end=None, today=None):
+    """Return room-stay charges overlapping an inclusive report date range.
+
+    RoomStay end_date is exclusive. User-facing report end_date is inclusive,
+    so the report converts it to an exclusive boundary by adding one day.
+    Open stays are counted through the current hotel date, consistent with the
+    RoomStay.nights billing convention. No model data is changed.
+    """
+    today = today or timezone.localdate()
+    report_start = start
+    report_end_exclusive = (end + timedelta(days=1)) if end else (today + timedelta(days=1))
+    stays = RoomStay.objects.filter(booking__in=bookings).select_related(
+        "booking__guest", "booking", "room"
+    ).order_by("-start_date", "room__number")
+    if report_start:
+        stays = stays.filter(Q(end_date__isnull=True) | Q(end_date__gt=report_start))
+        stays = stays.filter(start_date__lt=report_end_exclusive)
+    else:
+        stays = stays.filter(start_date__lt=report_end_exclusive)
+    rows = []
+    total = Decimal("0.00")
     for stay in stays:
-        end=stay.end_date or today; nights=max((end-stay.start_date).days,0); amount=Decimal(nights)*stay.rate
-        rows.append({"stay":stay,"nights":nights,"amount":amount}); total += amount
-    return rows,total
+        effective_start = max(stay.start_date, report_start) if report_start else stay.start_date
+        natural_end_exclusive = stay.end_date or (today + timedelta(days=1))
+        effective_end = min(natural_end_exclusive, report_end_exclusive)
+        nights = max((effective_end - effective_start).days, 0)
+        amount = Decimal(nights) * stay.rate
+        # Preserve the existing same-day checked-out billing fallback when
+        # the selected range includes the stay's date and the ledger has zero nights.
+        if (nights == 0 and stay.booking.status == "checked_out"
+                and stay.end_date == stay.start_date
+                and (report_start is None or stay.start_date >= report_start)
+                and stay.start_date < report_end_exclusive):
+            nights = 1
+            amount = stay.rate
+        rows.append({"stay": stay, "nights": nights, "amount": amount})
+        total += amount
+    return rows, total
+
+
+def report_dates(form):
+    if form.is_valid():
+        return form.cleaned_data.get("start_date"), form.cleaned_data.get("end_date")
+    return None, None
+
+
 
 
 class RoomRevenueReportView(HotelReportBase):
-    template_name="reports/hotel/room_revenue.html"
+    template_name = "reports/hotel/room_revenue.html"
+
     def get_context_data(self, **kwargs):
-        c=super().get_context_data(**kwargs); form,b=self.filtered_bookings(); rows,total=stay_rows(b); c.update(form=form,report=rows,total_revenue=total); return c
+        context = super().get_context_data(**kwargs)
+
+        form, bookings = self.filtered_bookings(
+            apply_date_filters=False
+        )
+        start_date, end_date = report_dates(form)
+
+        if form.is_valid():
+            rows, total = stay_rows(
+                bookings,
+                start=start_date,
+                end=end_date,
+            )
+        else:
+            rows, total = [], Decimal("0.00")
+
+        context.update(
+            form=form,
+            report=rows,
+            total_revenue=total,
+        )
+        return context
 
 
 class StayLedgerReportView(HotelReportBase):
-    template_name="reports/hotel/stay_ledger.html"
+    template_name = "reports/hotel/stay_ledger.html"
+
     def get_context_data(self, **kwargs):
-        c=super().get_context_data(**kwargs); form,b=self.filtered_bookings(); rows,total=stay_rows(b); c.update(form=form,rows=rows,total=total); return c
+        context = super().get_context_data(**kwargs)
+
+        form, bookings = self.filtered_bookings(
+            apply_date_filters=False
+        )
+        start_date, end_date = report_dates(form)
+
+        if form.is_valid():
+            rows, total = stay_rows(
+                bookings,
+                start=start_date,
+                end=end_date,
+            )
+        else:
+            rows, total = [], Decimal("0.00")
+
+        context.update(
+            form=form,
+            rows=rows,
+            total=total,
+        )
+        return context
+
+
+
 
 
 class OccupancyReportView(HotelReportBase):
@@ -139,7 +243,7 @@ class MaintenanceReportView(HotelReportBase):
 class RoomTypeRevenueReportView(HotelReportBase):
     template_name="reports/hotel/room_type_revenue.html"
     def get_context_data(self, **kwargs):
-        c=super().get_context_data(**kwargs); form,b=self.filtered_bookings(); rows,total=stay_rows(b); totals={}
+        c=super().get_context_data(**kwargs); form,b=self.filtered_bookings(apply_date_filters=False); start,end=report_dates(form); rows,total=stay_rows(b,start,end) if form.is_valid() else ([],Decimal("0.00")); totals={}
         for r in rows: totals[r["stay"].room.room_type]=totals.get(r["stay"].room.room_type,Decimal("0.00"))+r["amount"]
         c.update(form=form,report=[{"room_type":k,"total":v} for k,v in totals.items()],grand_total=total); return c
 
@@ -161,6 +265,14 @@ class PaymentMethodReportView(BillingReportBase):
     def get_context_data(self,**kwargs):
         c=super().get_context_data(**kwargs); form,qs=self.payment_queryset(); c.update(form=form,methods=qs.values("payment_method").annotate(total=Sum("amount")).order_by("-total")); return c
 
+def invoice_paid_as_of(invoice, end=None):
+    """Sum payments received on or before end; end=None means current total."""
+    payments = invoice.payment_set.all()
+    if end:
+        payments = payments.filter(created__date__lte=end)
+    return payments.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+
 class InvoiceSummaryReportView(BillingReportBase):
     template_name="reports/billing/invoice_summary.html"
 
@@ -169,7 +281,11 @@ class InvoiceSummaryReportView(BillingReportBase):
         qs=Invoice.objects.select_related("booking__guest","booking__room").order_by("-created")
         if start: qs=qs.filter(created__date__gte=start)
         if end: qs=qs.filter(created__date__lte=end)
-        rows=[{"invoice":i,"total":i.total,"paid":i.paid_total,"balance":i.balance} for i in qs]
+        rows = []
+        for invoice in qs.prefetch_related("payment_set"):
+            paid = invoice_paid_as_of(invoice, end)
+            balance = max(Decimal("0.00"), invoice.total - paid)
+            rows.append({"invoice": invoice, "total": invoice.total, "paid": paid, "balance": balance})
         return form, rows
 
     def get_context_data(self,**kwargs):
@@ -225,18 +341,92 @@ class RestaurantReportBase(ReportBase):
         if start: qs=qs.filter(created_at__date__gte=start)
         if end: qs=qs.filter(created_at__date__lte=end)
         if form.is_valid():
+            filters = {}
             if form.cleaned_data.get("waiter"):
-                qs=qs.filter(waiter=form.cleaned_data["waiter"])
+                filters["waiter"] = form.cleaned_data["waiter"]
+            # Apply category and food on the same related item join. The item-level
+            # aggregation below repeats these filters to prevent order-level leakage.
             if form.cleaned_data.get("category"):
-                qs=qs.filter(items__food__category=form.cleaned_data["category"])
+                filters["items__food__category"] = form.cleaned_data["category"]
             if form.cleaned_data.get("food"):
-                qs=qs.filter(items__food=form.cleaned_data["food"])
+                filters["items__food"] = form.cleaned_data["food"]
+            if filters:
+                qs = qs.filter(**filters)
         return form,qs.distinct()
 
+
+
+
+
 class DailyRestaurantSalesReportView(RestaurantReportBase):
-    template_name="reports/restaurant/daily_sales.html"
-    def get_context_data(self,**kwargs):
-        c=super().get_context_data(**kwargs); form,qs=self.orders(); c.update(form=form,orders=qs,total_sales=qs.aggregate(total=Sum("total_amount"))["total"] or 0); return c
+    template_name = "reports/restaurant/daily_sales.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form, orders = self.orders()
+
+        # Default: show each order's complete total.
+        order_rows = []
+        total_sales = Decimal("0.00")
+
+        # If category or food is filtered, calculate matching item totals.
+        use_item_totals = False
+        if form.is_valid():
+            use_item_totals = bool(
+                form.cleaned_data.get("category")
+                or form.cleaned_data.get("food")
+            )
+
+        if use_item_totals:
+            items = filtered_restaurant_items(orders, form)
+
+            # Aggregate each selected food's value per order.
+            item_rows = (
+                items.values("order_id")
+                .annotate(
+                    filtered_total=Sum(
+                        F("quantity") * F("food__price")
+                    )
+                )
+            )
+
+            totals_by_order = {
+                row["order_id"]: row["filtered_total"] or Decimal("0.00")
+                for row in item_rows
+            }
+
+            for order in orders:
+                amount = totals_by_order.get(
+                    order.id, Decimal("0.00")
+                )
+
+                # Only show orders that contain the selected food/category.
+                if order.id in totals_by_order:
+                    order_rows.append({
+                        "order": order,
+                        "total": amount,
+                    })
+                    total_sales += amount
+
+        else:
+            # No food/category filter: use the complete order totals.
+            for order in orders:
+                amount = order.total_amount or Decimal("0.00")
+                order_rows.append({
+                    "order": order,
+                    "total": amount,
+                })
+                total_sales += amount
+
+        context.update(
+            form=form,
+            orders=orders,
+            order_rows=order_rows,
+            total_sales=total_sales,
+        )
+        return context
+
+
 class MonthlySalesReportView(DailyRestaurantSalesReportView): template_name="reports/restaurant/monthly_sales.html"
 class OrderHistoryReportView(DailyRestaurantSalesReportView): template_name="reports/restaurant/order_history.html"
 
@@ -262,14 +452,120 @@ class UnpaidOrdersPerWaiterReportView(RestaurantReportBase):
                 paid=RestaurantPaymentAllocation.objects.filter(order=order).aggregate(total=Sum("amount"))["total"] or 0; pending += max(order.total_amount-paid,Decimal("0.00"))
             rows.append({"waiter":qs.filter(waiter_id=waiter_id).first().waiter,"unpaid_total":pending})
         c.update(form=form,report=rows); return c
+def filtered_restaurant_items(orders, form):
+    """Apply food/category filters to item rows, not only to their parent orders."""
+    items = OrderItem.objects.filter(order__in=orders).select_related("food", "food__category")
+    if form.is_valid():
+        category = form.cleaned_data.get("category")
+        food = form.cleaned_data.get("food")
+        if category:
+            items = items.filter(food__category=category)
+        if food:
+            items = items.filter(food=food)
+    return items
+
+'''
+def top_selling_food_rows(orders, form):
+    return filtered_restaurant_items(orders, form).values(
+        "food_id", "food__name", "food__category__name"
+    ).annotate(
+        total_qty=Coalesce(Sum("quantity"), 0),
+        sales=Coalesce(Sum(F("quantity") * F("food__price")), Decimal("0.00")),
+    ).order_by("-total_qty", "food__name", "food_id")
+
+
+def category_sales_rows(orders, form):
+    return filtered_restaurant_items(orders, form).values(
+        "food__category_id", "food__category__name"
+    ).annotate(
+        total_qty=Coalesce(Sum("quantity"), 0),
+        total_sales=Coalesce(Sum(F("quantity") * F("food__price")), Decimal("0.00")),
+    ).order_by("-total_sales", "food__category__name", "food__category_id")
+
+'''
+
+
+def filtered_restaurant_items(orders, form):
+    """Apply category and food filters to the actual order-item rows."""
+    items = OrderItem.objects.filter(
+        order__in=orders
+    ).select_related("food", "food__category")
+
+    if form.is_valid():
+        category = form.cleaned_data.get("category")
+        food = form.cleaned_data.get("food")
+
+        if category:
+            items = items.filter(food__category=category)
+
+        if food:
+            items = items.filter(food=food)
+
+    return items
+
+
+def top_selling_food_rows(orders, form):
+    return filtered_restaurant_items(orders, form).values(
+        "food_id",
+        "food__name",
+        "food__category__name",
+    ).annotate(
+        total_qty=Coalesce(Sum("quantity"), 0),
+        sales=Coalesce(
+            Sum(F("quantity") * F("food__price")),
+            Decimal("0.00"),
+        ),
+    ).order_by("-total_qty", "food__name", "food_id")
+
+
+def category_sales_rows(orders, form):
+    return filtered_restaurant_items(orders, form).values(
+        "food__category_id",
+        "food__category__name",
+    ).annotate(
+        total_qty=Coalesce(Sum("quantity"), 0),
+        total_sales=Coalesce(
+            Sum(F("quantity") * F("food__price")),
+            Decimal("0.00"),
+        ),
+    ).order_by("-total_sales", "food__category__name", "food__category_id")
+
+
+
+
+
+
 class TopSellingFoodsReportView(RestaurantReportBase):
-    template_name="reports/restaurant/top_selling_foods.html"
-    def get_context_data(self,**kwargs):
-        c=super().get_context_data(**kwargs); form,qs=self.orders(); items=OrderItem.objects.filter(order__in=qs); rows=items.values("food__name").annotate(total_qty=Sum("quantity"),sales=Sum(F("quantity")*F("food__price"))).order_by("-total_qty"); c.update(form=form,foods=rows); return c
+    template_name = "reports/restaurant/top_selling_foods.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form, orders = self.orders()
+        foods = top_selling_food_rows(orders, form)
+
+        context.update(form=form, foods=foods)
+        return context
+
+'''
 class CategorySalesReportView(RestaurantReportBase):
     template_name="reports/restaurant/category_sales.html"
     def get_context_data(self,**kwargs):
-        c=super().get_context_data(**kwargs); form,qs=self.orders(); items=OrderItem.objects.filter(order__in=qs); rows=items.values("food__category__name").annotate(total_qty=Sum("quantity"),total_sales=Sum(F("quantity")*F("food__price"))).order_by("-total_sales"); c.update(form=form,categories=rows); return c
+        c=super().get_context_data(**kwargs); form,qs=self.orders(); rows=category_sales_rows(qs,form); c.update(form=form,categories=rows); return c
+'''
+
+
+class CategorySalesReportView(RestaurantReportBase):
+    template_name = "reports/restaurant/category_sales.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form, orders = self.orders()
+        categories = category_sales_rows(orders, form)
+
+        context.update(form=form, categories=categories)
+        return context
+
+
 class TableSalesReportView(RestaurantReportBase):
     template_name="reports/restaurant/table_sales.html"
     def get_context_data(self,**kwargs):
@@ -340,18 +636,8 @@ def _date_bounds(request):
 
 
 def _room_revenue_between(start, end):
-    qs = RoomStay.objects.select_related('booking__guest', 'room')
-    if start:
-        qs = qs.filter(end_date__isnull=True) | qs.filter(end_date__gt=start)
-    if end:
-        qs = qs.filter(start_date__lte=end)
-    total = Decimal('0.00')
-    for stay in qs.distinct():
-        effective_start = max(stay.start_date, start) if start else stay.start_date
-        natural_end = stay.end_date or timezone.localdate()
-        effective_end = min(natural_end, end) if end else natural_end
-        nights = max((effective_end - effective_start).days, 0)
-        total += Decimal(nights) * stay.rate
+    """Room-stay revenue for inclusive report dates using the same stay ledger."""
+    _, total = stay_rows(Booking.objects.all(), start=start, end=end)
     return total
 
 
@@ -360,10 +646,15 @@ class FinancialReportBase(ReportBase):
 
     def financial_range(self):
         form, start, end = _date_bounds(self.request)
+        today = timezone.localdate()
+        if not form.is_valid():
+            return form, today.replace(day=1), today
         if not start and not end:
-            today = timezone.localdate()
-            start = today.replace(day=1)
+            start, end = today.replace(day=1), today
+        elif start and not end:
             end = today
+        elif end and not start:
+            start = end.replace(day=1)
         return form, start, end
 
     def _revenue(self, start, end):
@@ -384,9 +675,7 @@ class FinancialDashboardView(FinancialReportBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        from accounting.services import get_operational_receivables_as_of, get_profit_loss_statement, seed_accounts, sync_operational_journals
-        seed_accounts()
-        sync_operational_journals(self.request.user)
+        from accounting.services import get_operational_receivables_as_of, get_profit_loss_statement
         pnl = get_profit_loss_statement(start, end)
 
         revenue = {
@@ -402,8 +691,9 @@ class FinancialDashboardView(FinancialReportBase):
             'expenses': pnl['total_expenses'],
             'total': pnl['cogs'] + pnl['total_expenses'],
         }
-        collections = Payment.objects.filter(created__date__gte=start, created__date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        cash_out = costs['total']
+        cash_summary = cash_flow_summary(start, end)
+        collections = cash_summary['collections']
+        cash_out = cash_summary['operating_outflow']
         receivables = get_operational_receivables_as_of(end)
         c.update(
             form=form, start=start, end=end, revenue=revenue, costs=costs,
@@ -422,9 +712,7 @@ class ProfitLossReportView(FinancialReportBase):
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        from accounting.services import seed_accounts, sync_operational_journals, get_profit_loss_statement
-        seed_accounts()
-        sync_operational_journals(self.request.user)
+        from accounting.services import get_profit_loss_statement
         pnl = get_profit_loss_statement(start, end)
         expense_rows = Expense.objects.filter(
             date__gte=start, date__lte=end
@@ -451,17 +739,40 @@ class ProfitLossReportView(FinancialReportBase):
         return c
 
 
+def cash_flow_summary(start, end):
+    """Summarize recorded cash movements, not accrual purchases or COGS.
+
+    Customer payments, supplier payments, and expenses each carry a recorded
+    payment method/date. Purchase orders alone are not cash disbursements.
+    Opening balances, transfers, refunds, and unrecorded payments are outside
+    the current data model and therefore excluded.
+    """
+    from accounting.models import SupplierPayment
+    collections = Payment.objects.filter(
+        created__date__gte=start, created__date__lte=end
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    supplier_payments = SupplierPayment.objects.filter(
+        date__gte=start, date__lte=end
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    expenses = Expense.objects.filter(
+        date__gte=start, date__lte=end
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    return {
+        "collections": collections,
+        "supplier_payments": supplier_payments,
+        "expenses": expenses,
+        "operating_outflow": supplier_payments + expenses,
+        "net_cash": collections - supplier_payments - expenses,
+    }
+
+
 class CashFlowReportView(FinancialReportBase):
     template_name = 'reports/financial/cash_flow.html'
 
     def get_context_data(self, **kwargs):
         c = super().get_context_data(**kwargs)
         form, start, end = self.financial_range()
-        collections = Payment.objects.filter(created__date__gte=start, created__date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        purchases = Purchase.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('total_amount'))['total'] or Decimal('0.00')
-        expenses = Expense.objects.filter(date__gte=start, date__lte=end).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
-        c.update(form=form, start=start, end=end, collections=collections, purchases=purchases, expenses=expenses,
-                 operating_outflow=purchases+expenses, net_cash=collections-purchases-expenses)
+        c.update(form=form, start=start, end=end, **cash_flow_summary(start, end))
         return c
 
 
