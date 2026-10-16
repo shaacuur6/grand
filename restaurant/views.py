@@ -13,7 +13,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, T
 
 import qrcode
 
-from accounts.constants import MANAGEMENT_ROLES, RESTAURANT_ROLES
+from accounts.constants import FOOD_MENU_ROLES, MANAGEMENT_ROLES, RESTAURANT_ROLES
 from accounts.mixins import RoleRequiredMixin
 from billing.services import sync_invoice
 from hotel.models import Booking
@@ -94,6 +94,13 @@ class ReceiptView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     template_name = "restaurant/receipt.html"
     allowed_roles = RESTAURANT_ROLES
 
+    def get_queryset(self):
+        qs = Order.objects.select_related("waiter", "booking", "employee").prefetch_related("items__food")
+        # Waiters can print only their own orders; management can print any order.
+        if getattr(getattr(self.request.user, "userprofile", None), "role", None) == "waiter":
+            qs = qs.filter(waiter=self.request.user)
+        return qs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         qr = qrcode.make(f"Order {self.object.id} - Total ${self.object.total_amount}")
@@ -122,6 +129,13 @@ class OrderDetailView(LoginRequiredMixin, RoleRequiredMixin, DetailView):
     model = Order
     template_name = "restaurant/order_detail.html"
     context_object_name = "order"
+
+    def get_queryset(self):
+        qs = Order.objects.select_related("waiter", "booking", "employee").prefetch_related("items__food")
+        # Waiters can view only orders they created; managers/admins can view all.
+        if getattr(getattr(self.request.user, "userprofile", None), "role", None) == "waiter":
+            qs = qs.filter(waiter=self.request.user)
+        return qs
 
 
 class OrderUpdateView(LoginRequiredMixin, RoleRequiredMixin, UpdateView):
@@ -201,7 +215,7 @@ class OrderItemReportView(LoginRequiredMixin, RoleRequiredMixin, ListView):
 
 
 class FoodListView(LoginRequiredMixin, RoleRequiredMixin, ListView):
-    allowed_roles = RESTAURANT_ROLES
+    allowed_roles = FOOD_MENU_ROLES
     model = FoodItem
     template_name = "restaurant/food_list.html"
     context_object_name = "items"

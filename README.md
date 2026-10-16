@@ -75,3 +75,14 @@ python manage.py collectstatic --noinput
 ```
 
 Then test locally before deploying to the VPS.
+
+
+## Reviewed role boundaries (backend-enforced)
+
+- **Admin:** full access to operational, billing, purchasing, finance, accounting and reporting screens.
+- **Manager:** operational management, all reports, billing, purchases, finance and accounting.
+- **Reception:** hotel bookings, rooms, guests, services and check-in/check-out; invoice/payment access permitted by the billing views. Cannot access restaurant POS, purchasing, finance or accounting.
+- **Waiter:** restaurant POS and restaurant-facing order/receipt access; may view only their own order details. Cannot access hotel booking management, billing, purchasing, finance or accounting.
+- **Kitchen:** menu viewing only in this codebase. A dedicated kitchen queue and food-preparation status workflow are **not implemented** in the supplied models/views, so this package does not claim to grant that missing functionality. Add a preparation-status field and kitchen-only update view as a separate feature if required.
+
+Role checks are enforced in CBV dispatch; hiding navigation is only a usability layer and is not the security boundary. The base navigation is now role-aware. Review any additional custom/function-based views before deployment.

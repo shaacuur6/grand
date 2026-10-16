@@ -229,7 +229,7 @@
 
             <!-- =========================
                  HOTEL
-            ========================== -->
+            ========================== -->\n            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager" or request.user.userprofile.role == "reception") %}
 
             <li class="nav-item dropdown">
 
@@ -296,9 +296,9 @@
             </li>
 
 
-            <!-- =========================
+            {% endif %}\n\n            <!-- =========================
                  RESTAURANT
-            ========================== -->
+            ========================== -->\n            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager" or request.user.userprofile.role == "waiter") %}
 
             <li class="nav-item dropdown">
 
@@ -383,9 +383,9 @@
             </li>
 
 
-            <!-- =========================
+            {% endif %}\n\n            <!-- =========================
                  PURCHASES & STOCK
-            ========================== -->
+            ========================== -->\n            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager") %}
 
             <li class="nav-item dropdown">
 
@@ -460,9 +460,9 @@
             </li>
 
 
-            <!-- =========================
+            {% endif %}\n\n            <!-- =========================
                  BILLING
-            ========================== -->
+            ========================== -->\n            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager" or request.user.userprofile.role == "reception") %}
 
             <li class="nav-item dropdown">
 
@@ -529,11 +529,11 @@
             </li>
 
 
-            <!-- =========================
+            {% endif %}\n\n            <!-- =========================
                  FINANCE
             ========================== -->
 
-            {% if request.user.is_authenticated and request.user.userprofile.role in "admin,manager" %}
+            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager") %}
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                     <i class="bi bi-wallet2"></i> Finance
@@ -552,7 +552,7 @@
             {% endif %}
 
 
-            {% if request.user.is_authenticated and request.user.userprofile.role in "admin,manager" %}
+            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager") %}
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                     <i class="bi bi-journal-bookmark"></i> Accounting
@@ -580,7 +580,7 @@
 
             <!-- =========================
                  REPORTS
-            ========================== -->
+            ========================== -->\n            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager") %}
 
             <li class="nav-item dropdown">
 
@@ -729,7 +729,7 @@
                         </a>
                     </li>
 
-                </ul>
+                    {% endif %}\n\n        </ul>
             </li>
 
         </ul>
