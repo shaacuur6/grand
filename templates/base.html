@@ -229,7 +229,8 @@
 
             <!-- =========================
                  HOTEL
-            ========================== -->\n            {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager" or request.user.userprofile.role == "reception") %}
+            ========================== -->         
+             {% if request.user.is_authenticated and (request.user.userprofile.role == "admin" or request.user.userprofile.role == "manager" or request.user.userprofile.role == "reception") %}
 
             <li class="nav-item dropdown">
 
