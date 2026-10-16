@@ -767,6 +767,7 @@
                     </li>
 
                     <li>
+                        <!--
                         <a
                             class="dropdown-item"
                             href="{% url 'logout' %}"
@@ -774,6 +775,15 @@
                             <i class="bi bi-box-arrow-right"></i>
                             Logout
                         </a>
+                    -->
+
+                        <form method="post" action="{% url 'logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item">
+                                Logout
+                            </button>
+                        </form>
+
                     </li>
 
                 </ul>
